@@ -3,112 +3,150 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>MovieNight</title>
+  <title>MovieNight — Stop Fighting About What to Watch</title>
+  <meta name="description" content="A tiny app that keeps movie night fair — and slightly dramatic.">
   <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700;900&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     :root {
-      --p1: #FF6B6B; --p1-glow: rgba(255,107,107,0.3);
-      --p2: #4ECDC4; --p2-glow: rgba(78,205,196,0.3);
-      --gold: #F7D794;
-      --bg: #0a0a0f; --card: #13131a; --elevated: #1a1a24;
-      --text: #FAFAFA; --muted: #9898A6; --dim: #5A5A6E;
+      --p1: #FF6B6B; --p1-soft: rgba(255,107,107,0.15);
+      --p2: #4ECDC4; --p2-soft: rgba(78,205,196,0.15);
+      --gold: #FFD93D; --gold-soft: rgba(255,217,61,0.15);
+      --purple: #A855F7;
+      --bg: #0f0f13; --card: #18181f; --elevated: #222230;
+      --text: #FAFAFA; --muted: #a0a0b0; --dim: #606070;
     }
     body {
       font-family: 'DM Sans', sans-serif;
       background: var(--bg); color: var(--text);
       min-height: 100vh; overflow-x: hidden;
     }
-    body::before {
-      content: ''; position: fixed; inset: 0; pointer-events: none; z-index: 0;
-      background: radial-gradient(ellipse at 20% 20%, rgba(255,107,107,0.07) 0%, transparent 50%),
-                  radial-gradient(ellipse at 80% 20%, rgba(78,205,196,0.07) 0%, transparent 50%),
-                  radial-gradient(ellipse at 50% 70%, rgba(247,215,148,0.04) 0%, transparent 60%);
-    }
     #root { position: relative; z-index: 1; }
-    .playfair { font-family: 'Playfair Display', serif; }
-    @keyframes heartbeat { 0%,100%{transform:scale(1)} 50%{transform:scale(1.1)} }
-    @keyframes reveal { 0%{opacity:0;transform:scale(0.95) translateY(15px)} 100%{opacity:1;transform:scale(1) translateY(0)} }
+    .space { font-family: 'Space Grotesk', sans-serif; }
+    @keyframes reveal { 0%{opacity:0;transform:scale(0.95) translateY(20px)} 100%{opacity:1;transform:scale(1) translateY(0)} }
     @keyframes spin { to{transform:rotate(360deg)} }
-    @keyframes glow { 0%,100%{box-shadow:0 0 25px rgba(247,215,148,0.4)} 50%{box-shadow:0 0 45px rgba(247,215,148,0.6)} }
-    @keyframes slideIn { 0%{opacity:0;transform:translateY(10px)} 100%{opacity:1;transform:translateY(0)} }
+    @keyframes glow { 0%,100%{box-shadow:0 0 30px rgba(255,217,61,0.4)} 50%{box-shadow:0 0 50px rgba(255,217,61,0.6)} }
+    @keyframes slideIn { 0%{opacity:0;transform:translateY(15px)} 100%{opacity:1;transform:translateY(0)} }
     @keyframes fadeIn { 0%{opacity:0} 100%{opacity:1} }
+    @keyframes shake { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-3px)} 75%{transform:translateX(3px)} }
+    @keyframes pulse { 0%,100%{transform:scale(1)} 50%{transform:scale(1.03)} }
+    @keyframes verdictReveal { 0%{opacity:0;transform:scale(0.8) rotate(-2deg)} 50%{transform:scale(1.05) rotate(1deg)} 100%{opacity:1;transform:scale(1) rotate(0)} }
+    @keyframes barGrow { 0%{width:0} 100%{width:var(--target-width)} }
     input[type="range"] { -webkit-appearance:none; background:transparent; cursor:pointer; width:100%; }
-    input[type="range"]::-webkit-slider-thumb { -webkit-appearance:none; height:18px; width:18px; border-radius:50%; background:currentColor; margin-top:-6px; box-shadow:0 2px 8px rgba(0,0,0,0.4); }
+    input[type="range"]::-webkit-slider-thumb { -webkit-appearance:none; height:22px; width:22px; border-radius:50%; background:currentColor; margin-top:-8px; box-shadow:0 2px 10px rgba(0,0,0,0.4); }
     input[type="range"]::-webkit-slider-runnable-track { height:6px; border-radius:3px; }
-    input[type="range"]::-moz-range-thumb { height:18px; width:18px; border-radius:50%; background:currentColor; border:none; }
+    input[type="range"]::-moz-range-thumb { height:22px; width:22px; border-radius:50%; background:currentColor; border:none; }
     input[type="range"]::-moz-range-track { height:6px; border-radius:3px; }
     .btn-choice { 
-      padding: 14px 28px; border-radius: 14px; border: 2px solid var(--elevated); 
+      padding: 16px 24px; border-radius: 16px; border: 2px solid var(--elevated); 
       background: var(--card); color: var(--muted); font-weight: 600; cursor: pointer; 
-      transition: all 0.25s; font-size: 15px;
+      transition: all 0.2s; font-size: 16px; width: 100%; text-align: left;
+      display: flex; align-items: center; gap: 12px;
     }
-    .btn-choice:hover { border-color: var(--gold); color: var(--text); }
-    .btn-choice.active { border-color: var(--gold); background: rgba(247,215,148,0.15); color: var(--gold); }
+    .btn-choice:hover { border-color: var(--gold); color: var(--text); transform: scale(1.02); }
+    .btn-choice:active { transform: scale(0.98); }
+    .btn-choice.active { border-color: var(--gold); background: var(--gold-soft); color: var(--gold); }
     .search-input:focus { border-color: var(--gold) !important; outline: none; }
     .rating-btn {
-      width: 44px; height: 44px; border-radius: 50%; border: 2px solid var(--elevated);
-      background: var(--card); color: var(--muted); font-size: 16px; cursor: pointer;
+      width: 52px; height: 52px; border-radius: 16px; border: 2px solid var(--elevated);
+      background: var(--card); color: var(--muted); font-size: 20px; cursor: pointer;
       transition: all 0.2s; display: flex; align-items: center; justify-content: center;
     }
     .rating-btn:hover { border-color: var(--gold); transform: scale(1.1); }
-    .rating-btn.active { border-color: var(--gold); background: var(--gold); color: var(--bg); }
+    .rating-btn.active { border-color: var(--gold); background: var(--gold); color: var(--bg); transform: scale(1.1); }
+    .share-btn {
+      padding: 14px 28px; border-radius: 50px; border: none;
+      background: linear-gradient(135deg, var(--purple), var(--p1));
+      color: white; font-weight: 700; cursor: pointer; font-size: 15px;
+      transition: all 0.2s; display: inline-flex; align-items: center; gap: 8px;
+    }
+    .share-btn:hover { transform: scale(1.05); box-shadow: 0 10px 30px rgba(168,85,247,0.4); }
   </style>
 </head>
 <body>
 <div id="root"></div>
-<footer>
-  <small>Copytright © 2026 Tyler Friddle</small>
-</footer>
 <script type="text/babel">
-const { useState, useEffect, useCallback } = React;
+const { useState, useEffect } = React;
 
 const API_KEY = '3f81cab7617ce7a5f47995d7d12a6512';
 const TMDB = 'https://api.themoviedb.org/3';
 const IMG = 'https://image.tmdb.org/t/p/w500';
 const IMG_SM = 'https://image.tmdb.org/t/p/w200';
 
-const FUNNY_QUOTES = [
+const VERDICT_QUOTES = [
   "All is fair in love and war... and movie night. ⚔️",
   "Don't worry, you'll get it next time. 😏",
-  "The couple that watches together, stays together. 🍿",
-  "Remember: no phones during the movie. 📵",
-  "If you fall asleep, you forfeit next week's pick. 😴",
-  "May the popcorn be buttery and the couch be comfy. 🛋️",
   "The algorithm has spoken. No appeals. ⚖️",
-  "Warning: Side effects may include cuddling. 🤗",
-  "This decision was made with love, math, and chaos. 🎲",
-  "Compromise: when nobody gets what they want, but together. 💕",
-  "Plot twist: you're both going to love it. 🎭",
-  "At least you didn't have to flip a coin. 🪙",
-  "Science says this is the one. Don't argue with science. 🔬",
-  "Your rom-com is in another castle. 🏰",
-  "May your snacks be plentiful and your bladder be strong. 🥤"
+  "This explains a lot, doesn't it? 👀",
+  "We don't make the rules. Actually, we do. 🎬",
+  "Statistically speaking, this was inevitable. 📊",
+  "The couch remembers everything. 🛋️",
+  "May the popcorn be buttery and the vibes be right. 🍿",
+  "Compromise: when nobody gets exactly what they want. 💕",
+  "This decision was made with love, math, and chaos. 🎲"
 ];
 
+// Deliberation Messages Component
+const DeliberationMessages = () => {
+  const [messageIndex, setMessageIndex] = useState(0);
+  const messages = [
+    { text: "Reviewing the evidence...", emoji: "📋" },
+    { text: "Analyzing taste profiles...", emoji: "🔍" },
+    { text: "Consulting the ancient scrolls...", emoji: "📜" },
+    { text: "Weighing compromise factors...", emoji: "⚖️" },
+    { text: "Checking who picked last time...", emoji: "👀" },
+    { text: "Calculating fairness quotient...", emoji: "📊" },
+    { text: "Almost there...", emoji: "✨" },
+    { text: "Rendering final judgment...", emoji: "🎬" }
+  ];
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setMessageIndex(prev => (prev + 1) % messages.length);
+    }, 600);
+    return () => clearInterval(interval);
+  }, []);
+
+  return (
+    <div style={{animation:'fadeIn 0.3s ease-out'}}>
+      <p style={{color:'var(--muted)',fontSize:'15px',marginBottom:'8px'}}>
+        {messages[messageIndex].emoji} {messages[messageIndex].text}
+      </p>
+      <div style={{display:'flex',justifyContent:'center',gap:'6px',marginTop:'16px'}}>
+        {[0,1,2,3,4].map(i => (
+          <div key={i} style={{
+            width:'8px',height:'8px',borderRadius:'50%',
+            background: i <= messageIndex % 5 ? 'var(--gold)' : 'var(--elevated)',
+            transition:'background 0.3s'
+          }}/>
+        ))}
+      </div>
+    </div>
+  );
+};
+
 const GENRES = {
-  28: { name:'Action', intensity:0.85, romance:0.25, comfort:0.35, cerebral:0.3 },
-  12: { name:'Adventure', intensity:0.7, romance:0.4, comfort:0.55, cerebral:0.4 },
-  16: { name:'Animation', intensity:0.35, romance:0.5, comfort:0.85, cerebral:0.4 },
-  35: { name:'Comedy', intensity:0.25, romance:0.6, comfort:0.9, cerebral:0.3 },
-  80: { name:'Crime', intensity:0.75, romance:0.3, comfort:0.3, cerebral:0.7 },
-  99: { name:'Documentary', intensity:0.2, romance:0.15, comfort:0.5, cerebral:0.95 },
-  18: { name:'Drama', intensity:0.5, romance:0.7, comfort:0.45, cerebral:0.65 },
-  10751: { name:'Family', intensity:0.2, romance:0.35, comfort:0.95, cerebral:0.25 },
-  14: { name:'Fantasy', intensity:0.55, romance:0.55, comfort:0.65, cerebral:0.5 },
-  36: { name:'History', intensity:0.45, romance:0.4, comfort:0.4, cerebral:0.85 },
-  27: { name:'Horror', intensity:0.95, romance:0.2, comfort:0.15, cerebral:0.4 },
-  10402: { name:'Music', intensity:0.4, romance:0.7, comfort:0.8, cerebral:0.35 },
-  9648: { name:'Mystery', intensity:0.65, romance:0.35, comfort:0.35, cerebral:0.9 },
-  10749: { name:'Romance', intensity:0.3, romance:1.0, comfort:0.7, cerebral:0.35 },
-  878: { name:'Sci-Fi', intensity:0.65, romance:0.35, comfort:0.45, cerebral:0.8 },
-  10770: { name:'TV Movie', intensity:0.3, romance:0.5, comfort:0.8, cerebral:0.3 },
-  53: { name:'Thriller', intensity:0.9, romance:0.25, comfort:0.2, cerebral:0.75 },
-  10752: { name:'War', intensity:0.9, romance:0.35, comfort:0.2, cerebral:0.6 },
-  37: { name:'Western', intensity:0.65, romance:0.4, comfort:0.4, cerebral:0.4 }
+  28:{name:'Action',intensity:0.85,romance:0.25,comfort:0.35,cerebral:0.3},
+  12:{name:'Adventure',intensity:0.7,romance:0.4,comfort:0.55,cerebral:0.4},
+  16:{name:'Animation',intensity:0.35,romance:0.5,comfort:0.85,cerebral:0.4},
+  35:{name:'Comedy',intensity:0.25,romance:0.6,comfort:0.9,cerebral:0.3},
+  80:{name:'Crime',intensity:0.75,romance:0.3,comfort:0.3,cerebral:0.7},
+  99:{name:'Documentary',intensity:0.2,romance:0.15,comfort:0.5,cerebral:0.95},
+  18:{name:'Drama',intensity:0.5,romance:0.7,comfort:0.45,cerebral:0.65},
+  10751:{name:'Family',intensity:0.2,romance:0.35,comfort:0.95,cerebral:0.25},
+  14:{name:'Fantasy',intensity:0.55,romance:0.55,comfort:0.65,cerebral:0.5},
+  36:{name:'History',intensity:0.45,romance:0.4,comfort:0.4,cerebral:0.85},
+  27:{name:'Horror',intensity:0.95,romance:0.2,comfort:0.15,cerebral:0.4},
+  10402:{name:'Music',intensity:0.4,romance:0.7,comfort:0.8,cerebral:0.35},
+  9648:{name:'Mystery',intensity:0.65,romance:0.35,comfort:0.35,cerebral:0.9},
+  10749:{name:'Romance',intensity:0.3,romance:1.0,comfort:0.7,cerebral:0.35},
+  878:{name:'Sci-Fi',intensity:0.65,romance:0.35,comfort:0.45,cerebral:0.8},
+  53:{name:'Thriller',intensity:0.9,romance:0.25,comfort:0.2,cerebral:0.75},
+  10752:{name:'War',intensity:0.9,romance:0.35,comfort:0.2,cerebral:0.6},
+  37:{name:'Western',intensity:0.65,romance:0.4,comfort:0.4,cerebral:0.4}
 };
 
 const fetchTMDB = async (endpoint) => {
@@ -129,14 +167,14 @@ const normalizeMovie = (m) => ({
 });
 
 const ExpressionSlider = ({ value, onChange, color }) => {
-  const labels = ['meh', 'okay', 'like it', 'love it!', 'MUST SEE!'];
+  const labels = ['if I have to...', 'could watch it', 'would enjoy this', 'really want this', '🔥 TONIGHT\'S PICK 🔥'];
   return (
-    <div style={{marginTop:'8px'}}>
+    <div style={{marginTop:'10px'}}>
       <input type="range" min="1" max="5" value={value}
         onChange={e => onChange(+e.target.value)}
         style={{ background: `linear-gradient(to right, ${color} ${(value-1)*25}%, #2a2a35 ${(value-1)*25}%)`, color }}
       />
-      <div style={{textAlign:'center',fontSize:'10px',color,fontWeight:'700',marginTop:'2px',textTransform:'uppercase',letterSpacing:'0.5px'}}>
+      <div style={{textAlign:'center',fontSize: value === 5 ? '10px' : '11px',color: value === 5 ? 'var(--gold)' : color,fontWeight:'700',marginTop:'4px',textTransform:'uppercase',letterSpacing:'0.5px',animation: value === 5 ? 'pulse 1s ease-in-out infinite' : 'none'}}>
         {labels[value-1]}
       </div>
     </div>
@@ -145,57 +183,57 @@ const ExpressionSlider = ({ value, onChange, color }) => {
 
 const PickCard = ({ movie, expression, onExpressionChange, onRemove, color, index }) => (
   <div style={{
-    background:'var(--card)', borderRadius:'14px', padding:'12px',
+    background:'var(--card)', borderRadius:'16px', padding:'14px',
     border:`2px solid ${color}`, position:'relative',
-    animation:`slideIn 0.3s ease-out ${index * 0.08}s both`
+    animation:`slideIn 0.3s ease-out ${index * 0.1}s both`
   }}>
     <button onClick={onRemove} style={{
-      position:'absolute', top:'-8px', right:'-8px', width:'22px', height:'22px',
-      borderRadius:'50%', border:'none', background:'#555', color:'white',
-      cursor:'pointer', fontSize:'12px', fontWeight:'bold',
+      position:'absolute', top:'-10px', right:'-10px', width:'26px', height:'26px',
+      borderRadius:'50%', border:'none', background:'#444', color:'white',
+      cursor:'pointer', fontSize:'14px', fontWeight:'bold',
       display:'flex', alignItems:'center', justifyContent:'center'
     }}>×</button>
-    <div style={{display:'flex',gap:'10px',alignItems:'center'}}>
+    <div style={{display:'flex',gap:'12px',alignItems:'center'}}>
       {movie.poster ? (
-        <img src={movie.posterSm || movie.poster} alt="" style={{width:'45px',height:'68px',objectFit:'cover',borderRadius:'8px',flexShrink:0}} onError={(e) => e.target.style.display = 'none'} />
+        <img src={movie.posterSm || movie.poster} alt="" style={{width:'50px',height:'75px',objectFit:'cover',borderRadius:'10px',flexShrink:0}} onError={(e) => e.target.style.display = 'none'} />
       ) : (
-        <div style={{width:'45px',height:'68px',background:'var(--elevated)',borderRadius:'8px',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'20px',flexShrink:0}}>🎬</div>
+        <div style={{width:'50px',height:'75px',background:'var(--elevated)',borderRadius:'10px',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'24px',flexShrink:0}}>🎬</div>
       )}
       <div style={{flex:1,minWidth:0}}>
-        <h4 style={{fontSize:'12px',fontWeight:'600',marginBottom:'2px',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{movie.title}</h4>
-        <p style={{fontSize:'10px',color:'var(--dim)'}}>{movie.year}</p>
+        <h4 style={{fontSize:'14px',fontWeight:'600',marginBottom:'2px',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{movie.title}</h4>
+        <p style={{fontSize:'11px',color:'var(--dim)'}}>{movie.year}</p>
         <ExpressionSlider value={expression} onChange={onExpressionChange} color={color} />
       </div>
     </div>
   </div>
 );
 
-const MovieResult = ({ movie, onSelect, disabled, alreadyPicked }) => {
+const MovieResult = ({ movie, onSelect, alreadyPicked }) => {
   const [hover, setHover] = useState(false);
   return (
-    <div onClick={() => !disabled && !alreadyPicked && onSelect(movie)}
+    <div onClick={() => !alreadyPicked && onSelect(movie)}
       onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)}
       style={{
-        display:'flex', gap:'10px', padding:'10px 12px', borderRadius:'10px',
-        background: hover && !disabled && !alreadyPicked ? 'var(--elevated)' : 'transparent',
-        cursor: disabled || alreadyPicked ? 'not-allowed' : 'pointer',
+        display:'flex', gap:'12px', padding:'12px', borderRadius:'12px',
+        background: hover && !alreadyPicked ? 'var(--elevated)' : 'transparent',
+        cursor: alreadyPicked ? 'not-allowed' : 'pointer',
         opacity: alreadyPicked ? 0.5 : 1, transition:'all 0.2s'
       }}>
       {movie.poster ? (
-        <img src={movie.posterSm || movie.poster} alt="" style={{width:'40px',height:'60px',objectFit:'cover',borderRadius:'6px',flexShrink:0}} onError={(e) => e.target.style.display = 'none'} />
+        <img src={movie.posterSm || movie.poster} alt="" style={{width:'44px',height:'66px',objectFit:'cover',borderRadius:'8px',flexShrink:0}} onError={(e) => e.target.style.display = 'none'} />
       ) : (
-        <div style={{width:'40px',height:'60px',background:'var(--card)',borderRadius:'6px',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'16px',flexShrink:0}}>🎬</div>
+        <div style={{width:'44px',height:'66px',background:'var(--card)',borderRadius:'8px',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'18px',flexShrink:0}}>🎬</div>
       )}
       <div style={{flex:1,minWidth:0}}>
-        <h4 style={{fontSize:'13px',fontWeight:'600',marginBottom:'2px'}}>{movie.title}</h4>
-        <p style={{fontSize:'11px',color:'var(--dim)'}}>{movie.year}{movie.rating > 0 && ` • ★ ${movie.rating.toFixed(1)}`}</p>
-        {alreadyPicked && <span style={{fontSize:'9px',color:'var(--gold)'}}>Already picked</span>}
+        <h4 style={{fontSize:'14px',fontWeight:'600',marginBottom:'3px'}}>{movie.title}</h4>
+        <p style={{fontSize:'12px',color:'var(--dim)'}}>{movie.year}{movie.rating > 0 && ` • ★ ${movie.rating.toFixed(1)}`}</p>
+        {alreadyPicked && <span style={{fontSize:'10px',color:'var(--gold)'}}>Already picked</span>}
       </div>
     </div>
   );
 };
 
-const PartnerColumn = ({ name, color, picks, onAddPick, onRemovePick, onExpressionChange, allPicks, movies, onSearch, loading }) => {
+const PartnerColumn = ({ name, emoji, color, picks, onAddPick, onRemovePick, onExpressionChange, allPicks, movies, onSearch, loading }) => {
   const [query, setQuery] = useState('');
   const [showResults, setShowResults] = useState(false);
   const [searchResults, setSearchResults] = useState([]);
@@ -225,16 +263,16 @@ const PartnerColumn = ({ name, color, picks, onAddPick, onRemovePick, onExpressi
 
   return (
     <div style={{
-      flex:1, minWidth:'280px', background:'var(--card)', borderRadius:'20px',
-      padding:'20px', border:`2px solid ${isComplete ? color : 'transparent'}`,
-      boxShadow: isComplete ? `0 0 25px ${color}30` : 'none', transition:'all 0.4s'
+      flex:1, minWidth:'280px', background:'var(--card)', borderRadius:'24px',
+      padding:'20px', border:`3px solid ${isComplete ? color : 'var(--elevated)'}`,
+      boxShadow: isComplete ? `0 0 30px ${color}30` : 'none', transition:'all 0.3s'
     }}>
       <div style={{textAlign:'center',marginBottom:'16px'}}>
-        <div style={{width:'44px',height:'44px',borderRadius:'50%',background:color,display:'flex',alignItems:'center',justifyContent:'center',margin:'0 auto 10px',fontSize:'20px',boxShadow:`0 4px 15px ${color}40`}}>👤</div>
-        <h2 style={{fontSize:'18px',fontWeight:'700',color,marginBottom:'2px'}}>{name}</h2>
-        <p style={{fontSize:'12px',color:'var(--muted)'}}>{picks.length}/3 picks {isComplete && '✓'}</p>
+        <div style={{fontSize:'40px',marginBottom:'8px'}}>{emoji}</div>
+        <h2 className="space" style={{fontSize:'20px',fontWeight:'700',color,marginBottom:'4px'}}>{name}</h2>
+        <p style={{fontSize:'13px',color:'var(--muted)'}}>{picks.length}/3 picks {isComplete && '✓'}</p>
       </div>
-      <div style={{display:'flex',flexDirection:'column',gap:'10px',marginBottom:'16px',minHeight:'240px'}}>
+      <div style={{display:'flex',flexDirection:'column',gap:'12px',marginBottom:'16px',minHeight:'260px'}}>
         {picks.map((pick, i) => (
           <PickCard key={pick.movie.id} movie={pick.movie} expression={pick.expr}
             onExpressionChange={(val) => onExpressionChange(pick.movie.id, val)}
@@ -242,8 +280,8 @@ const PartnerColumn = ({ name, color, picks, onAddPick, onRemovePick, onExpressi
         ))}
         {picks.length < 3 && [...Array(3 - picks.length)].map((_, i) => (
           <div key={`empty-${i}`} style={{
-            height:'92px', borderRadius:'14px', border:`2px dashed ${i === 0 && picks.length < 2 ? color+'60' : 'var(--elevated)'}`,
-            display:'flex',alignItems:'center',justifyContent:'center',color:'var(--dim)',fontSize:'12px'
+            height:'103px', borderRadius:'16px', border:`2px dashed ${i === 0 && picks.length < 2 ? color+'60' : 'var(--elevated)'}`,
+            display:'flex',alignItems:'center',justifyContent:'center',color:'var(--dim)',fontSize:'13px'
           }}>{i === 0 && picks.length < 2 ? `Pick ${2 - picks.length} more...` : 'Optional...'}</div>
         ))}
       </div>
@@ -252,18 +290,18 @@ const PartnerColumn = ({ name, color, picks, onAddPick, onRemovePick, onExpressi
           <form onSubmit={(e) => { e.preventDefault(); doSearch(query); }}>
             <input value={query} onChange={(e) => { setQuery(e.target.value); if (!e.target.value) setShowResults(true); }}
               onFocus={() => setShowResults(true)} placeholder="Search movies..." className="search-input"
-              style={{width:'100%',padding:'11px 14px',borderRadius:'10px',border:'2px solid var(--elevated)',background:'var(--bg)',color:'var(--text)',fontSize:'13px'}} />
+              style={{width:'100%',padding:'14px 16px',borderRadius:'14px',border:'2px solid var(--elevated)',background:'var(--bg)',color:'var(--text)',fontSize:'14px'}} />
           </form>
           {showResults && (
-            <div style={{position:'absolute',top:'100%',left:0,right:0,marginTop:'6px',background:'var(--card)',borderRadius:'10px',maxHeight:'260px',overflowY:'auto',zIndex:100,boxShadow:'0 10px 40px rgba(0,0,0,0.5)',border:'1px solid var(--elevated)'}}>
+            <div style={{position:'absolute',top:'100%',left:0,right:0,marginTop:'8px',background:'var(--card)',borderRadius:'14px',maxHeight:'280px',overflowY:'auto',zIndex:100,boxShadow:'0 15px 50px rgba(0,0,0,0.5)',border:'1px solid var(--elevated)'}}>
               {searching || loading ? (
-                <div style={{padding:'16px',textAlign:'center',color:'var(--muted)',fontSize:'13px'}}>
-                  <div style={{width:'20px',height:'20px',border:'2px solid var(--elevated)',borderTopColor:color,borderRadius:'50%',animation:'spin 0.8s linear infinite',margin:'0 auto 8px'}}/>
+                <div style={{padding:'20px',textAlign:'center',color:'var(--muted)',fontSize:'14px'}}>
+                  <div style={{width:'24px',height:'24px',border:'3px solid var(--elevated)',borderTopColor:color,borderRadius:'50%',animation:'spin 0.8s linear infinite',margin:'0 auto 10px'}}/>
                   {searching ? 'Searching...' : 'Loading...'}
                 </div>
               ) : displayResults.length > 0 ? (
-                displayResults.map(m => <MovieResult key={m.id} movie={m} onSelect={handleSelect} disabled={picks.length >= 3} alreadyPicked={pickedIds.has(String(m.id))} />)
-              ) : query.trim() ? <div style={{padding:'16px',textAlign:'center',color:'var(--muted)',fontSize:'13px'}}>No results</div> : null}
+                displayResults.map(m => <MovieResult key={m.id} movie={m} onSelect={handleSelect} alreadyPicked={pickedIds.has(String(m.id))} />)
+              ) : query.trim() ? <div style={{padding:'20px',textAlign:'center',color:'var(--muted)',fontSize:'14px'}}>No results</div> : null}
             </div>
           )}
         </div>
@@ -275,36 +313,36 @@ const PartnerColumn = ({ name, color, picks, onAddPick, onRemovePick, onExpressi
 const ResultMovieCard = ({ movie, score, rank, isWinner }) => (
   <div style={{
     background: isWinner ? 'linear-gradient(135deg,var(--card),var(--elevated))' : 'var(--card)',
-    borderRadius: isWinner ? '20px' : '14px', padding: isWinner ? '20px' : '14px',
-    border: isWinner ? '2px solid var(--gold)' : 'none',
-    boxShadow: isWinner ? '0 0 50px rgba(247,215,148,0.15)' : '0 4px 15px rgba(0,0,0,0.2)',
-    animation: `reveal 0.5s ease-out ${rank * 0.12}s both`
+    borderRadius: isWinner ? '24px' : '16px', padding: isWinner ? '24px' : '16px',
+    border: isWinner ? '3px solid var(--gold)' : 'none',
+    boxShadow: isWinner ? '0 0 60px rgba(255,217,61,0.2)' : '0 4px 20px rgba(0,0,0,0.2)',
+    animation: `reveal 0.5s ease-out ${rank * 0.15}s both`
   }}>
-    <div style={{display:'flex',gap:'16px',alignItems:'flex-start'}}>
+    <div style={{display:'flex',gap:'20px',alignItems:'flex-start'}}>
       {!isWinner && (
-        <div style={{width:'28px',height:'28px',borderRadius:'50%',flexShrink:0,
+        <div style={{width:'32px',height:'32px',borderRadius:'50%',flexShrink:0,
           background: rank === 1 ? 'linear-gradient(135deg,#FFD700,#FFA500)' : rank === 2 ? 'linear-gradient(135deg,#C0C0C0,#888)' : 'linear-gradient(135deg,#CD7F32,#8B4513)',
-          display:'flex',alignItems:'center',justifyContent:'center',fontWeight:'700',color:'white',fontSize:'12px'}}>{rank}</div>
+          display:'flex',alignItems:'center',justifyContent:'center',fontWeight:'700',color:'white',fontSize:'14px'}}>{rank}</div>
       )}
-      <div style={{borderRadius: isWinner ? '14px' : '10px',overflow:'hidden',flexShrink:0,boxShadow:'0 6px 25px rgba(0,0,0,0.4)'}}>
+      <div style={{borderRadius: isWinner ? '16px' : '12px',overflow:'hidden',flexShrink:0,boxShadow:'0 8px 30px rgba(0,0,0,0.4)'}}>
         {movie.poster ? (
-          <img src={movie.poster} alt={movie.title} style={{width: isWinner ? '160px' : '70px', display:'block'}} onError={(e) => e.target.style.display = 'none'} />
+          <img src={movie.poster} alt={movie.title} style={{width: isWinner ? '180px' : '80px', display:'block'}} onError={(e) => e.target.style.display = 'none'} />
         ) : (
-          <div style={{width: isWinner ? '160px' : '70px', height: isWinner ? '240px' : '105px', background:'var(--elevated)',display:'flex',alignItems:'center',justifyContent:'center',fontSize: isWinner ? '40px' : '20px'}}>🎬</div>
+          <div style={{width: isWinner ? '180px' : '80px', height: isWinner ? '270px' : '120px', background:'var(--elevated)',display:'flex',alignItems:'center',justifyContent:'center',fontSize: isWinner ? '48px' : '24px'}}>🎬</div>
         )}
       </div>
       <div style={{flex:1}}>
-        {isWinner && <div style={{fontSize:'11px',color:'var(--gold)',fontWeight:'600',marginBottom:'6px',textTransform:'uppercase',letterSpacing:'1px'}}>🏆 Tonight's Pick</div>}
-        <h3 className="playfair" style={{fontSize: isWinner ? '22px' : '15px', fontWeight:'600',marginBottom:'6px',lineHeight:1.2}}>{movie.title}</h3>
-        <div style={{display:'flex',gap:'6px',marginBottom: isWinner ? '10px' : '6px',flexWrap:'wrap'}}>
-          {movie.rating > 0 && <span style={{padding:'3px 8px',borderRadius:'12px',background:'var(--bg)',fontSize:'11px'}}>★ {movie.rating.toFixed(1)}</span>}
-          <span style={{padding:'3px 8px',borderRadius:'12px',background:'var(--bg)',fontSize:'11px'}}>{movie.year}</span>
+        {isWinner && <div style={{fontSize:'12px',color:'var(--gold)',fontWeight:'700',marginBottom:'8px',textTransform:'uppercase',letterSpacing:'2px'}}>🎬 THE VERDICT</div>}
+        <h3 className="space" style={{fontSize: isWinner ? '26px' : '16px', fontWeight:'700',marginBottom:'8px',lineHeight:1.2}}>{movie.title}</h3>
+        <div style={{display:'flex',gap:'8px',marginBottom: isWinner ? '12px' : '8px',flexWrap:'wrap'}}>
+          {movie.rating > 0 && <span style={{padding:'4px 10px',borderRadius:'20px',background:'var(--bg)',fontSize:'12px',fontWeight:'600'}}>★ {movie.rating.toFixed(1)}</span>}
+          <span style={{padding:'4px 10px',borderRadius:'20px',background:'var(--bg)',fontSize:'12px'}}>{movie.year}</span>
         </div>
-        <div style={{display:'inline-block',padding: isWinner ? '10px 16px' : '6px 12px',borderRadius:'10px',background:'linear-gradient(135deg,rgba(255,107,107,0.12),rgba(78,205,196,0.12))'}}>
-          <span style={{fontSize:'11px',color:'var(--muted)',marginRight:'6px'}}>Match:</span>
-          <span style={{fontSize: isWinner ? '24px' : '16px', fontWeight:'700',color:'var(--gold)'}}>{score}%</span>
+        <div style={{display:'inline-block',padding: isWinner ? '12px 20px' : '8px 14px',borderRadius:'14px',background:'linear-gradient(135deg,rgba(255,107,107,0.15),rgba(78,205,196,0.15))'}}>
+          <span style={{fontSize:'12px',color:'var(--muted)',marginRight:'8px'}}>Match:</span>
+          <span className="space" style={{fontSize: isWinner ? '28px' : '18px', fontWeight:'700',color:'var(--gold)'}}>{score}%</span>
         </div>
-        {isWinner && movie.overview && <p style={{fontSize:'12px',color:'var(--muted)',marginTop:'10px',lineHeight:'1.5'}}>{movie.overview.slice(0,130)}...</p>}
+        {isWinner && movie.overview && <p style={{fontSize:'13px',color:'var(--muted)',marginTop:'14px',lineHeight:'1.6'}}>{movie.overview.slice(0,140)}...</p>}
       </div>
     </div>
   </div>
@@ -312,14 +350,18 @@ const ResultMovieCard = ({ movie, score, rank, isWinner }) => (
 
 const RatingButtons = ({ value, onChange, color }) => {
   const emojis = ['😴', '😐', '🙂', '😊', '🤩'];
+  const labels = ['hated it', 'meh', 'it was ok', 'liked it', 'loved it'];
   return (
-    <div style={{display:'flex',gap:'8px',justifyContent:'center'}}>
-      {[1,2,3,4,5].map(n => (
-        <button key={n} className={`rating-btn ${value === n ? 'active' : ''}`} onClick={() => onChange(n)}
-          style={value === n ? {borderColor: color, background: color, color: 'var(--bg)'} : {}}>
-          {emojis[n-1]}
-        </button>
-      ))}
+    <div>
+      <div style={{display:'flex',gap:'10px',justifyContent:'center'}}>
+        {[1,2,3,4,5].map(n => (
+          <button key={n} className={`rating-btn ${value === n ? 'active' : ''}`} onClick={() => onChange(n)}
+            style={value === n ? {borderColor: color, background: color, color: 'var(--bg)'} : {}}>
+            {emojis[n-1]}
+          </button>
+        ))}
+      </div>
+      {value && <p style={{textAlign:'center',fontSize:'12px',color,marginTop:'8px',fontWeight:'600'}}>{labels[value-1]}</p>}
     </div>
   );
 };
@@ -341,13 +383,13 @@ const LastMovieSearch = ({ value, onChange, movies, onSearch }) => {
 
   if (value) {
     return (
-      <div style={{display:'flex',alignItems:'center',gap:'12px',padding:'12px',background:'var(--elevated)',borderRadius:'12px'}}>
-        {value.poster && <img src={value.posterSm || value.poster} alt="" style={{width:'40px',height:'60px',objectFit:'cover',borderRadius:'6px'}} />}
+      <div style={{display:'flex',alignItems:'center',gap:'14px',padding:'14px',background:'var(--elevated)',borderRadius:'16px'}}>
+        {value.poster && <img src={value.posterSm || value.poster} alt="" style={{width:'50px',height:'75px',objectFit:'cover',borderRadius:'10px'}} />}
         <div style={{flex:1}}>
-          <p style={{fontWeight:'600',fontSize:'14px'}}>{value.title}</p>
-          <p style={{fontSize:'12px',color:'var(--dim)'}}>{value.year}</p>
+          <p style={{fontWeight:'600',fontSize:'15px'}}>{value.title}</p>
+          <p style={{fontSize:'13px',color:'var(--dim)'}}>{value.year}</p>
         </div>
-        <button onClick={() => onChange(null)} style={{padding:'6px 12px',borderRadius:'8px',border:'none',background:'var(--card)',color:'var(--muted)',cursor:'pointer',fontSize:'12px'}}>Change</button>
+        <button onClick={() => onChange(null)} style={{padding:'8px 14px',borderRadius:'10px',border:'none',background:'var(--card)',color:'var(--muted)',cursor:'pointer',fontSize:'13px',fontWeight:'600'}}>Change</button>
       </div>
     );
   }
@@ -359,22 +401,54 @@ const LastMovieSearch = ({ value, onChange, movies, onSearch }) => {
       <form onSubmit={(e) => { e.preventDefault(); doSearch(query); }}>
         <input value={query} onChange={(e) => { setQuery(e.target.value); setShowResults(true); }}
           onFocus={() => setShowResults(true)} placeholder="Search for the movie..." className="search-input"
-          style={{width:'100%',padding:'14px 16px',borderRadius:'12px',border:'2px solid var(--elevated)',background:'var(--bg)',color:'var(--text)',fontSize:'14px'}} />
+          style={{width:'100%',padding:'16px 18px',borderRadius:'14px',border:'2px solid var(--elevated)',background:'var(--bg)',color:'var(--text)',fontSize:'15px'}} />
       </form>
       {showResults && (
-        <div style={{position:'absolute',top:'100%',left:0,right:0,marginTop:'6px',background:'var(--card)',borderRadius:'10px',maxHeight:'240px',overflowY:'auto',zIndex:100,boxShadow:'0 10px 40px rgba(0,0,0,0.5)',border:'1px solid var(--elevated)'}}>
+        <div style={{position:'absolute',top:'100%',left:0,right:0,marginTop:'8px',background:'var(--card)',borderRadius:'14px',maxHeight:'260px',overflowY:'auto',zIndex:100,boxShadow:'0 15px 50px rgba(0,0,0,0.5)',border:'1px solid var(--elevated)'}}>
           {searching ? (
-            <div style={{padding:'16px',textAlign:'center',color:'var(--muted)',fontSize:'13px'}}>
-              <div style={{width:'20px',height:'20px',border:'2px solid var(--elevated)',borderTopColor:'var(--gold)',borderRadius:'50%',animation:'spin 0.8s linear infinite',margin:'0 auto 8px'}}/>Searching...
+            <div style={{padding:'20px',textAlign:'center',color:'var(--muted)',fontSize:'14px'}}>
+              <div style={{width:'24px',height:'24px',border:'3px solid var(--elevated)',borderTopColor:'var(--gold)',borderRadius:'50%',animation:'spin 0.8s linear infinite',margin:'0 auto 10px'}}/>Searching...
             </div>
           ) : displayResults.length > 0 ? displayResults.map(m => (
-            <MovieResult key={m.id} movie={m} onSelect={(movie) => { onChange(movie); setQuery(''); setShowResults(false); }} disabled={false} alreadyPicked={false} />
-          )) : query.trim() ? <div style={{padding:'16px',textAlign:'center',color:'var(--muted)',fontSize:'13px'}}>No results</div> : null}
+            <MovieResult key={m.id} movie={m} onSelect={(movie) => { onChange(movie); setQuery(''); setShowResults(false); }} alreadyPicked={false} />
+          )) : query.trim() ? <div style={{padding:'20px',textAlign:'center',color:'var(--muted)',fontSize:'14px'}}>No results</div> : null}
         </div>
       )}
     </div>
   );
 };
+
+// Fairness Bar Component
+const FairnessBar = ({ p1Percent, p2Percent }) => (
+  <div style={{background:'var(--card)',borderRadius:'20px',padding:'24px',marginTop:'24px',animation:'fadeIn 0.5s ease-out 0.5s both'}}>
+    <h3 className="space" style={{fontSize:'14px',fontWeight:'700',marginBottom:'16px',textAlign:'center',color:'var(--muted)',textTransform:'uppercase',letterSpacing:'1px'}}>
+      ⚖️ Movie Night Balance
+    </h3>
+    <div style={{display:'flex',flexDirection:'column',gap:'12px'}}>
+      <div>
+        <div style={{display:'flex',justifyContent:'space-between',marginBottom:'6px'}}>
+          <span style={{fontSize:'13px',fontWeight:'600'}}>😇 You</span>
+          <span style={{fontSize:'13px',color:'var(--p2)',fontWeight:'700'}}>{p1Percent}%</span>
+        </div>
+        <div style={{height:'12px',background:'var(--elevated)',borderRadius:'6px',overflow:'hidden'}}>
+          <div style={{height:'100%',background:'linear-gradient(90deg,var(--p2),var(--p2-soft))',width:`${p1Percent}%`,borderRadius:'6px',transition:'width 1s ease-out'}}/>
+        </div>
+      </div>
+      <div>
+        <div style={{display:'flex',justifyContent:'space-between',marginBottom:'6px'}}>
+          <span style={{fontSize:'13px',fontWeight:'600'}}>😈 Them</span>
+          <span style={{fontSize:'13px',color:'var(--p1)',fontWeight:'700'}}>{p2Percent}%</span>
+        </div>
+        <div style={{height:'12px',background:'var(--elevated)',borderRadius:'6px',overflow:'hidden'}}>
+          <div style={{height:'100%',background:'linear-gradient(90deg,var(--p1),var(--p1-soft))',width:`${p2Percent}%`,borderRadius:'6px',transition:'width 1s ease-out'}}/>
+        </div>
+      </div>
+    </div>
+    <p style={{textAlign:'center',fontSize:'12px',color:'var(--dim)',marginTop:'14px',fontStyle:'italic'}}>
+      {p1Percent > p2Percent ? "Looking good for you tonight 😏" : p2Percent > p1Percent ? "They've been getting their way... 👀" : "Perfectly balanced, as all things should be ✨"}
+    </p>
+  </div>
+);
 
 const App = () => {
   const [phase, setPhase] = useState('q1');
@@ -389,6 +463,8 @@ const App = () => {
   const [result, setResult] = useState(null);
   const [cache, setCache] = useState({});
   const [randomQuotes, setRandomQuotes] = useState([]);
+  const [fairnessScore, setFairnessScore] = useState({ p1: 50, p2: 50 });
+  const [showHowItWorks, setShowHowItWorks] = useState(false);
 
   useEffect(() => {
     const load = async () => {
@@ -445,9 +521,18 @@ const App = () => {
   const findMatch = async () => {
     setPhase('calculating');
     
-    // Pick 3 random quotes
-    const shuffled = [...FUNNY_QUOTES].sort(() => Math.random() - 0.5);
-    setRandomQuotes(shuffled.slice(0, 3));
+    const shuffled = [...VERDICT_QUOTES].sort(() => Math.random() - 0.5);
+    setRandomQuotes(shuffled.slice(0, 2));
+
+    // Calculate fairness display (not the actual algorithm weights)
+    let displayP1 = 50, displayP2 = 50;
+    if (lastPicker === 'p1') { displayP1 = 35; displayP2 = 65; }
+    else if (lastPicker === 'p2') { displayP1 = 65; displayP2 = 35; }
+    if (lastMovieRatingP1 && lastMovieRatingP2) {
+      if (lastPicker === 'p1' && lastMovieRatingP2 <= 2) { displayP1 = 25; displayP2 = 75; }
+      else if (lastPicker === 'p2' && lastMovieRatingP1 <= 2) { displayP1 = 75; displayP2 = 25; }
+    }
+    setFairnessScore({ p1: displayP1, p2: displayP2 });
 
     let fairnessP1 = 1.0, fairnessP2 = 1.0;
     if (lastPicker === 'p1') {
@@ -469,10 +554,8 @@ const App = () => {
           const g = GENRES[gid];
           if (g) {
             p.genres[gid] = (p.genres[gid] || 0) + w;
-            p.intensity += g.intensity * w;
-            p.romance += g.romance * w;
-            p.comfort += g.comfort * w;
-            p.cerebral += g.cerebral * w;
+            p.intensity += g.intensity * w; p.romance += g.romance * w;
+            p.comfort += g.comfort * w; p.cerebral += g.cerebral * w;
           }
         });
       });
@@ -487,11 +570,8 @@ const App = () => {
     const prof2 = buildProfile(p2Picks, fairnessP2);
 
     const center = {
-      intensity: (prof1.intensity + prof2.intensity) / 2,
-      romance: (prof1.romance + prof2.romance) / 2,
-      comfort: (prof1.comfort + prof2.comfort) / 2,
-      cerebral: (prof1.cerebral + prof2.cerebral) / 2,
-      genres: {}
+      intensity: (prof1.intensity + prof2.intensity) / 2, romance: (prof1.romance + prof2.romance) / 2,
+      comfort: (prof1.comfort + prof2.comfort) / 2, cerebral: (prof1.cerebral + prof2.cerebral) / 2, genres: {}
     };
     const allG = new Set([...Object.keys(prof1.genres), ...Object.keys(prof2.genres)]);
     allG.forEach(g => center.genres[g] = ((prof1.genres[g]||0) + (prof2.genres[g]||0)) / 2);
@@ -524,9 +604,12 @@ const App = () => {
       let score = 0;
       const p1Pick = p1Picks[movie.id], p2Pick = p2Picks[movie.id];
       
+      // MASSIVE bonus for mutual picks - agreement is heavily rewarded
       if (p1Pick && p2Pick) {
         const combined = (p1Pick.expr * fairnessP1) + (p2Pick.expr * fairnessP2);
-        score += combined * combined * 2.5;
+        const agreementBonus = Math.min(p1Pick.expr, p2Pick.expr); // Reward similar enthusiasm
+        score += combined * combined * 3;
+        score += agreementBonus * agreementBonus * 5; // Extra bonus for matching excitement
       }
 
       (movie.genre_ids || []).forEach(gid => {
@@ -542,15 +625,18 @@ const App = () => {
 
       if (movie.rating >= 7) score += (movie.rating - 6) * 2;
 
+      // Penalize one-sided extreme picks more heavily (refusing compromise)
       if (p1Pick && !p2Pick && lastPicker === 'p1') {
         const mp = getMovieProfile(movie);
         const dist = Math.abs(mp.intensity - prof2.intensity) + Math.abs(mp.romance - prof2.romance) + Math.abs(mp.comfort - prof2.comfort) + Math.abs(mp.cerebral - prof2.cerebral);
-        score -= dist * p1Pick.expr * 1.5;
+        score -= dist * p1Pick.expr * 2; // Increased penalty
+        if (p1Pick.expr === 5) score -= 10; // Extra penalty for max enthusiasm on non-shared pick
       }
       if (p2Pick && !p1Pick && lastPicker === 'p2') {
         const mp = getMovieProfile(movie);
         const dist = Math.abs(mp.intensity - prof1.intensity) + Math.abs(mp.romance - prof1.romance) + Math.abs(mp.comfort - prof1.comfort) + Math.abs(mp.cerebral - prof1.cerebral);
-        score -= dist * p2Pick.expr * 1.5;
+        score -= dist * p2Pick.expr * 2; // Increased penalty
+        if (p2Pick.expr === 5) score -= 10; // Extra penalty for max enthusiasm on non-shared pick
       }
 
       return { movie, score };
@@ -559,7 +645,17 @@ const App = () => {
     scored.sort((a, b) => b.score - a.score);
     const top5 = scored.slice(0, 5).map((s) => ({...s, matchScore: Math.min(98, Math.max(68, Math.round(52 + s.score * 0.9)))}));
 
-    setTimeout(() => { setResult(top5); setPhase('result'); }, 1800);
+    setTimeout(() => { setResult(top5); setPhase('result'); }, 5000);
+  };
+
+  const shareResult = () => {
+    const text = `🎬 MovieNight Verdict: "${result[0].movie.title}" (${result[0].matchScore}% match)\n\nStop fighting about what to watch 👉`;
+    if (navigator.share) {
+      navigator.share({ title: 'MovieNight Verdict', text, url: window.location.href });
+    } else {
+      navigator.clipboard.writeText(text + ' ' + window.location.href);
+      alert('Copied to clipboard!');
+    }
   };
 
   const reset = () => {
@@ -569,70 +665,163 @@ const App = () => {
 
   return (
     <div style={{minHeight:'100vh',padding:'16px',maxWidth:'1100px',margin:'0 auto'}}>
-      <header style={{textAlign:'center',padding:'24px 16px 16px'}}>
-        <h1 className="playfair" style={{fontSize:'clamp(28px,6vw,42px)',fontWeight:'700',marginBottom:'6px',background:'linear-gradient(135deg,var(--p1),var(--gold),var(--p2))',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent'}}>
+      <header style={{textAlign:'center',padding:'28px 16px 20px',position:'relative'}}>
+        {/* How it Works button */}
+        <button 
+          onClick={() => setShowHowItWorks(true)}
+          style={{
+            position:'absolute',top:'28px',right:'16px',
+            padding:'8px 16px',borderRadius:'20px',border:'1px solid var(--elevated)',
+            background:'transparent',color:'var(--muted)',fontSize:'12px',fontWeight:'600',
+            cursor:'pointer',transition:'all 0.2s'
+          }}
+          onMouseOver={(e) => {e.target.style.borderColor='var(--gold)';e.target.style.color='var(--gold)'}}
+          onMouseOut={(e) => {e.target.style.borderColor='var(--elevated)';e.target.style.color='var(--muted)'}}
+        >
+          How it works
+        </button>
+        
+        <h1 className="space" style={{fontSize:'clamp(32px,7vw,48px)',fontWeight:'700',marginBottom:'8px',background:'linear-gradient(135deg,var(--p1),var(--gold),var(--p2))',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent'}}>
           MovieNight
         </h1>
-        <p style={{fontSize:'14px',color:'var(--muted)'}}>Find the movies you'll love together</p>
+        <p style={{fontSize:'14px',color:'var(--muted)',marginBottom:'4px'}}>Find the movies you'll love together</p>
+        {phase === 'q1' && (
+          <div style={{marginTop:'12px'}}>
+            <p style={{fontSize:'12px',color:'var(--dim)',letterSpacing:'1.5px',fontWeight:'500',textTransform:'uppercase'}}>
+              THOU SHALL SHARE THE REMOTE
+            </p>
+            <p style={{fontSize:'11px',color:'var(--dim)',marginTop:'2px',fontStyle:'italic'}}>An ancient law. Recently enforced.</p>
+          </div>
+        )}
       </header>
 
+      {/* How it Works Modal */}
+      {showHowItWorks && (
+        <div style={{
+          position:'fixed',inset:0,background:'rgba(0,0,0,0.8)',backdropFilter:'blur(8px)',
+          display:'flex',alignItems:'center',justifyContent:'center',zIndex:1000,padding:'20px',
+          animation:'fadeIn 0.3s ease-out'
+        }} onClick={() => setShowHowItWorks(false)}>
+          <div style={{
+            background:'var(--card)',borderRadius:'24px',padding:'32px',maxWidth:'480px',width:'100%',
+            border:'1px solid var(--elevated)',boxShadow:'0 25px 80px rgba(0,0,0,0.5)',
+            animation:'reveal 0.3s ease-out'
+          }} onClick={(e) => e.stopPropagation()}>
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'24px'}}>
+              <h2 className="space" style={{fontSize:'22px',fontWeight:'700'}}>How MovieNight Works</h2>
+              <button onClick={() => setShowHowItWorks(false)} style={{
+                width:'32px',height:'32px',borderRadius:'50%',border:'none',background:'var(--elevated)',
+                color:'var(--muted)',fontSize:'18px',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'
+              }}>×</button>
+            </div>
+            
+            <div style={{display:'flex',flexDirection:'column',gap:'20px'}}>
+              <div style={{display:'flex',gap:'14px',alignItems:'flex-start'}}>
+                <div style={{width:'36px',height:'36px',borderRadius:'12px',background:'var(--p1-soft)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'18px',flexShrink:0}}>📋</div>
+                <div>
+                  <h3 style={{fontSize:'15px',fontWeight:'600',marginBottom:'4px'}}>1. Answer a few questions</h3>
+                  <p style={{fontSize:'13px',color:'var(--muted)',lineHeight:'1.5'}}>Tell us who picked last time and how it went. This helps us keep things fair.</p>
+                </div>
+              </div>
+              
+              <div style={{display:'flex',gap:'14px',alignItems:'flex-start'}}>
+                <div style={{width:'36px',height:'36px',borderRadius:'12px',background:'var(--p2-soft)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'18px',flexShrink:0}}>🎬</div>
+                <div>
+                  <h3 style={{fontSize:'15px',fontWeight:'600',marginBottom:'4px'}}>2. Each pick 2-3 movies</h3>
+                  <p style={{fontSize:'13px',color:'var(--muted)',lineHeight:'1.5'}}>Search for movies you'd want to watch tonight. Rate how much you want each one.</p>
+                </div>
+              </div>
+              
+              <div style={{display:'flex',gap:'14px',alignItems:'flex-start'}}>
+                <div style={{width:'36px',height:'36px',borderRadius:'12px',background:'var(--gold-soft)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'18px',flexShrink:0}}>⚖️</div>
+                <div>
+                  <h3 style={{fontSize:'15px',fontWeight:'600',marginBottom:'4px'}}>3. Get your verdict</h3>
+                  <p style={{fontSize:'13px',color:'var(--muted)',lineHeight:'1.5'}}>Our algorithm finds the movie you'll both enjoy. Agreement is rewarded. Stubbornness... isn't.</p>
+                </div>
+              </div>
+            </div>
+            
+            <div style={{marginTop:'24px',padding:'16px',background:'var(--elevated)',borderRadius:'14px',textAlign:'center'}}>
+              <p style={{fontSize:'12px',color:'var(--dim)',marginBottom:'4px'}}>⚖️ A Word of Caution</p>
+              <p style={{fontSize:'13px',color:'var(--muted)',fontStyle:'italic'}}>Those who find agreement may be favored. Those who refuse all compromise may be judged.</p>
+            </div>
+            
+            <button onClick={() => setShowHowItWorks(false)} style={{
+              width:'100%',marginTop:'24px',padding:'14px',borderRadius:'14px',border:'none',
+              background:'var(--gold)',color:'var(--bg)',fontSize:'15px',fontWeight:'700',cursor:'pointer'
+            }}>Got it</button>
+          </div>
+        </div>
+      )}
+
       {phase === 'q1' && (
-        <div style={{maxWidth:'480px',margin:'30px auto',padding:'0 16px',animation:'fadeIn 0.4s ease-out'}}>
-          <div style={{background:'var(--card)',borderRadius:'20px',padding:'32px 24px',textAlign:'center'}}>
-            <div style={{fontSize:'40px',marginBottom:'16px'}}>🎬</div>
-            <h2 style={{fontSize:'20px',fontWeight:'600',marginBottom:'24px'}}>Who picked the movie last time?</h2>
-            <div style={{display:'flex',flexDirection:'column',gap:'12px',marginBottom:'24px'}}>
+        <div style={{maxWidth:'500px',margin:'20px auto',padding:'0 16px',animation:'fadeIn 0.4s ease-out'}}>
+          <div style={{background:'var(--card)',borderRadius:'24px',padding:'36px 28px',textAlign:'center'}}>
+            <div style={{fontSize:'48px',marginBottom:'16px'}}>⚖️</div>
+            <p style={{fontSize:'12px',color:'var(--dim)',marginBottom:'8px',textTransform:'uppercase',letterSpacing:'2px'}}>Step 1 of 3 — Accountability</p>
+            <h2 className="space" style={{fontSize:'24px',fontWeight:'700',marginBottom:'8px'}}>Be honest.</h2>
+            <h2 className="space" style={{fontSize:'24px',fontWeight:'700',marginBottom:'24px'}}>Who picked last time?</h2>
+            <p style={{fontSize:'13px',color:'var(--dim)',marginBottom:'24px',fontStyle:'italic'}}>We'll know if you lie. 🔮</p>
+            <div style={{display:'flex',flexDirection:'column',gap:'12px',marginBottom:'28px'}}>
               <button className={`btn-choice ${lastPicker === 'p1' ? 'active' : ''}`} onClick={() => setLastPicker('p1')}
-                style={lastPicker === 'p1' ? {borderColor:'var(--p1)',background:'rgba(255,107,107,0.15)',color:'var(--p1)'} : {}}>👤 Partner 1</button>
+                style={lastPicker === 'p1' ? {borderColor:'var(--p2)',background:'var(--p2-soft)',color:'var(--p2)'} : {}}>
+                <span style={{fontSize:'24px'}}>😇</span> I did
+              </button>
               <button className={`btn-choice ${lastPicker === 'p2' ? 'active' : ''}`} onClick={() => setLastPicker('p2')}
-                style={lastPicker === 'p2' ? {borderColor:'var(--p2)',background:'rgba(78,205,196,0.15)',color:'var(--p2)'} : {}}>👤 Partner 2</button>
-              <button className={`btn-choice ${lastPicker === 'mutual' ? 'active' : ''}`} onClick={() => setLastPicker('mutual')}>🤝 We decided together</button>
+                style={lastPicker === 'p2' ? {borderColor:'var(--p1)',background:'var(--p1-soft)',color:'var(--p1)'} : {}}>
+                <span style={{fontSize:'24px'}}>😈</span> They did
+              </button>
+              <button className={`btn-choice ${lastPicker === 'mutual' ? 'active' : ''}`} onClick={() => setLastPicker('mutual')}>
+                <span style={{fontSize:'24px'}}>✨</span> We actually agreed (miracle)
+              </button>
             </div>
             <div style={{display:'flex',gap:'12px'}}>
-              <button onClick={() => { setLastPicker('mutual'); setPhase('picking'); }} style={{flex:1,padding:'14px',borderRadius:'12px',border:'2px solid var(--elevated)',background:'transparent',color:'var(--muted)',fontSize:'14px',fontWeight:'600',cursor:'pointer'}}>Skip</button>
-              <button onClick={() => setPhase('q2')} disabled={!lastPicker} style={{flex:2,padding:'14px',borderRadius:'12px',border:'none',background: lastPicker ? 'var(--gold)' : 'var(--elevated)',color: lastPicker ? 'var(--bg)' : 'var(--dim)',fontSize:'14px',fontWeight:'700',cursor: lastPicker ? 'pointer' : 'not-allowed'}}>Next →</button>
+              <button onClick={() => { setLastPicker('mutual'); setPhase('picking'); }} style={{flex:1,padding:'16px',borderRadius:'14px',border:'2px solid var(--elevated)',background:'transparent',color:'var(--dim)',fontSize:'14px',fontWeight:'600',cursor:'pointer'}}>Avoid responsibility</button>
+              <button onClick={() => setPhase('q2')} disabled={!lastPicker} style={{flex:2,padding:'16px',borderRadius:'14px',border:'none',background: lastPicker ? 'var(--gold)' : 'var(--elevated)',color: lastPicker ? 'var(--bg)' : 'var(--dim)',fontSize:'15px',fontWeight:'700',cursor: lastPicker ? 'pointer' : 'not-allowed'}}>Continue the trial →</button>
             </div>
           </div>
         </div>
       )}
 
       {phase === 'q2' && (
-        <div style={{maxWidth:'480px',margin:'30px auto',padding:'0 16px',animation:'fadeIn 0.4s ease-out'}}>
-          <div style={{background:'var(--card)',borderRadius:'20px',padding:'32px 24px'}}>
+        <div style={{maxWidth:'500px',margin:'20px auto',padding:'0 16px',animation:'fadeIn 0.4s ease-out'}}>
+          <div style={{background:'var(--card)',borderRadius:'24px',padding:'36px 28px'}}>
             <div style={{textAlign:'center',marginBottom:'28px'}}>
-              <div style={{fontSize:'40px',marginBottom:'12px'}}>🍿</div>
-              <h2 style={{fontSize:'20px',fontWeight:'600'}}>How much did you each like it?</h2>
+              <div style={{fontSize:'48px',marginBottom:'16px'}}>🍿</div>
+              <p style={{fontSize:'12px',color:'var(--dim)',marginBottom:'8px',textTransform:'uppercase',letterSpacing:'2px'}}>Step 2 of 3 — Evidence</p>
+              <h2 className="space" style={{fontSize:'24px',fontWeight:'700'}}>How did that go?</h2>
             </div>
             <div style={{marginBottom:'28px'}}>
-              <p style={{fontSize:'14px',color:'var(--p1)',fontWeight:'600',marginBottom:'12px',textAlign:'center'}}>Partner 1</p>
-              <RatingButtons value={lastMovieRatingP1} onChange={setLastMovieRatingP1} color="var(--p1)" />
+              <p style={{fontSize:'15px',fontWeight:'600',marginBottom:'14px',textAlign:'center'}}>😇 How much did <span style={{color:'var(--p2)'}}>you</span> like it?</p>
+              <RatingButtons value={lastMovieRatingP1} onChange={setLastMovieRatingP1} color="var(--p2)" />
             </div>
             <div style={{marginBottom:'28px'}}>
-              <p style={{fontSize:'14px',color:'var(--p2)',fontWeight:'600',marginBottom:'12px',textAlign:'center'}}>Partner 2</p>
-              <RatingButtons value={lastMovieRatingP2} onChange={setLastMovieRatingP2} color="var(--p2)" />
+              <p style={{fontSize:'15px',fontWeight:'600',marginBottom:'14px',textAlign:'center'}}>😈 How much did <span style={{color:'var(--p1)'}}>they</span> like it?</p>
+              <RatingButtons value={lastMovieRatingP2} onChange={setLastMovieRatingP2} color="var(--p1)" />
             </div>
             <div style={{display:'flex',gap:'12px'}}>
-              <button onClick={() => setPhase('q1')} style={{flex:1,padding:'14px',borderRadius:'12px',border:'2px solid var(--elevated)',background:'transparent',color:'var(--muted)',fontSize:'14px',fontWeight:'600',cursor:'pointer'}}>← Back</button>
-              <button onClick={() => setPhase('q3')} disabled={!lastMovieRatingP1 || !lastMovieRatingP2} style={{flex:2,padding:'14px',borderRadius:'12px',border:'none',background: (lastMovieRatingP1 && lastMovieRatingP2) ? 'var(--gold)' : 'var(--elevated)',color: (lastMovieRatingP1 && lastMovieRatingP2) ? 'var(--bg)' : 'var(--dim)',fontSize:'14px',fontWeight:'700',cursor: (lastMovieRatingP1 && lastMovieRatingP2) ? 'pointer' : 'not-allowed'}}>Next →</button>
+              <button onClick={() => setPhase('q1')} style={{flex:1,padding:'16px',borderRadius:'14px',border:'2px solid var(--elevated)',background:'transparent',color:'var(--muted)',fontSize:'14px',fontWeight:'600',cursor:'pointer'}}>← Back</button>
+              <button onClick={() => setPhase('q3')} disabled={!lastMovieRatingP1 || !lastMovieRatingP2} style={{flex:2,padding:'16px',borderRadius:'14px',border:'none',background: (lastMovieRatingP1 && lastMovieRatingP2) ? 'var(--gold)' : 'var(--elevated)',color: (lastMovieRatingP1 && lastMovieRatingP2) ? 'var(--bg)' : 'var(--dim)',fontSize:'15px',fontWeight:'700',cursor: (lastMovieRatingP1 && lastMovieRatingP2) ? 'pointer' : 'not-allowed'}}>Continue →</button>
             </div>
           </div>
         </div>
       )}
 
       {phase === 'q3' && (
-        <div style={{maxWidth:'480px',margin:'30px auto',padding:'0 16px',animation:'fadeIn 0.4s ease-out'}}>
-          <div style={{background:'var(--card)',borderRadius:'20px',padding:'32px 24px'}}>
+        <div style={{maxWidth:'500px',margin:'20px auto',padding:'0 16px',animation:'fadeIn 0.4s ease-out'}}>
+          <div style={{background:'var(--card)',borderRadius:'24px',padding:'36px 28px'}}>
             <div style={{textAlign:'center',marginBottom:'24px'}}>
-              <div style={{fontSize:'40px',marginBottom:'12px'}}>🎥</div>
-              <h2 style={{fontSize:'20px',fontWeight:'600'}}>What was the movie?</h2>
-              <p style={{fontSize:'13px',color:'var(--muted)',marginTop:'8px'}}>Optional, but helps us learn your tastes</p>
+              <div style={{fontSize:'48px',marginBottom:'16px'}}>🎥</div>
+              <p style={{fontSize:'12px',color:'var(--dim)',marginBottom:'8px',textTransform:'uppercase',letterSpacing:'2px'}}>Step 3 of 3 — The Record</p>
+              <h2 className="space" style={{fontSize:'24px',fontWeight:'700'}}>What was the movie?</h2>
+              <p style={{fontSize:'13px',color:'var(--dim)',marginTop:'8px'}}>Optional — but we're keeping track 📝</p>
             </div>
             <div style={{marginBottom:'24px'}}>
               <LastMovieSearch value={lastMovie} onChange={setLastMovie} movies={movies} onSearch={search} />
             </div>
             <div style={{display:'flex',gap:'12px'}}>
-              <button onClick={() => setPhase('q2')} style={{flex:1,padding:'14px',borderRadius:'12px',border:'2px solid var(--elevated)',background:'transparent',color:'var(--muted)',fontSize:'14px',fontWeight:'600',cursor:'pointer'}}>← Back</button>
-              <button onClick={() => setPhase('picking')} style={{flex:2,padding:'14px',borderRadius:'12px',border:'none',background:'var(--gold)',color:'var(--bg)',fontSize:'14px',fontWeight:'700',cursor:'pointer'}}>{lastMovie ? 'Start Picking →' : 'Skip & Start →'}</button>
+              <button onClick={() => setPhase('q2')} style={{flex:1,padding:'16px',borderRadius:'14px',border:'2px solid var(--elevated)',background:'transparent',color:'var(--muted)',fontSize:'14px',fontWeight:'600',cursor:'pointer'}}>← Back</button>
+              <button onClick={() => setPhase('picking')} style={{flex:2,padding:'16px',borderRadius:'14px',border:'none',background:'var(--gold)',color:'var(--bg)',fontSize:'15px',fontWeight:'700',cursor:'pointer'}}>{lastMovie ? 'Start picking →' : 'Skip & start →'}</button>
             </div>
           </div>
         </div>
@@ -640,61 +829,123 @@ const App = () => {
 
       {phase === 'picking' && (
         <>
-          <p style={{textAlign:'center',fontSize:'14px',color:'var(--muted)',marginBottom:'20px'}}>Each pick 2-3 movies and rate your excitement</p>
-          <div style={{display:'flex',gap:'20px',flexWrap:'wrap',marginBottom:'24px'}}>
-            <PartnerColumn name="Partner 1" color="var(--p1)" picks={Object.values(p1Picks)}
+          <p style={{textAlign:'center',fontSize:'15px',color:'var(--muted)',marginBottom:'16px'}}>Pick 2-3 movies each. Rate how much you want to watch them tonight.</p>
+          
+          {/* Caution Message */}
+          <div style={{maxWidth:'600px',margin:'0 auto 28px',padding:'0 16px'}}>
+            <div style={{
+              background:'linear-gradient(135deg, rgba(255,217,61,0.06), rgba(168,85,247,0.06))',
+              borderRadius:'16px',padding:'20px',textAlign:'center',
+              border:'1px solid rgba(255,217,61,0.15)'
+            }}>
+              <p style={{fontSize:'13px',color:'var(--gold)',marginBottom:'6px',fontWeight:'600'}}>⚖️ A Word of Caution</p>
+              <p style={{fontSize:'13px',color:'var(--muted)',lineHeight:'1.6'}}>
+                Those who find agreement may be favored.<br/>
+                Those who refuse all compromise may be judged.
+              </p>
+              <p style={{fontSize:'11px',color:'var(--dim)',marginTop:'8px',fontStyle:'italic'}}>The scoring is nuanced.</p>
+            </div>
+          </div>
+          
+          <div style={{display:'flex',gap:'24px',flexWrap:'wrap',marginBottom:'28px'}}>
+            <PartnerColumn name="You" emoji="😇" color="var(--p2)" picks={Object.values(p1Picks)}
               onAddPick={(m) => addPick(m, 1)} onRemovePick={(id) => removePick(id, 1)}
               onExpressionChange={(id, val) => setExpr(id, val, 1)} allPicks={{p1: p1Picks, p2: p2Picks}}
               movies={movies} onSearch={search} loading={loading} />
-            <div style={{display:'flex',alignItems:'center',justifyContent:'center',padding:'16px 0'}}>
-              <div style={{width:'50px',height:'50px',borderRadius:'50%',background:'var(--elevated)',border:'2px solid var(--gold)',display:'flex',alignItems:'center',justifyContent:'center',fontWeight:'700',fontSize:'14px',color:'var(--gold)',boxShadow:'0 4px 15px rgba(247,215,148,0.25)'}}>VS</div>
+            <div style={{display:'flex',alignItems:'center',justifyContent:'center',padding:'20px 0'}}>
+              <div style={{width:'56px',height:'56px',borderRadius:'50%',background:'var(--elevated)',border:'3px solid var(--gold)',display:'flex',alignItems:'center',justifyContent:'center',fontWeight:'700',fontSize:'16px',color:'var(--gold)',boxShadow:'0 4px 20px rgba(255,217,61,0.3)'}}>VS</div>
             </div>
-            <PartnerColumn name="Partner 2" color="var(--p2)" picks={Object.values(p2Picks)}
+            <PartnerColumn name="Them" emoji="😈" color="var(--p1)" picks={Object.values(p2Picks)}
               onAddPick={(m) => addPick(m, 2)} onRemovePick={(id) => removePick(id, 2)}
               onExpressionChange={(id, val) => setExpr(id, val, 2)} allPicks={{p1: p1Picks, p2: p2Picks}}
               movies={movies} onSearch={search} loading={loading} />
           </div>
           <div style={{textAlign:'center'}}>
             <button onClick={findMatch} disabled={!canFindMatch} style={{
-              padding:'16px 40px',borderRadius:'50px',border:'none',fontSize:'16px',fontWeight:'700',
+              padding:'18px 48px',borderRadius:'50px',border:'none',fontSize:'17px',fontWeight:'700',
               cursor: canFindMatch ? 'pointer' : 'not-allowed',
               background: canFindMatch ? 'linear-gradient(135deg,var(--p1),var(--gold),var(--p2))' : 'var(--elevated)',
               color: canFindMatch ? 'white' : 'var(--dim)',
-              boxShadow: canFindMatch ? '0 8px 35px rgba(247,215,148,0.35)' : 'none',
+              boxShadow: canFindMatch ? '0 10px 40px rgba(255,217,61,0.4)' : 'none',
               animation: canFindMatch ? 'glow 2s ease-in-out infinite' : 'none'
-            }}>{canFindMatch ? '✨ Find Our Movie ✨' : `Need ${Math.max(0, 2 - p1Count) + Math.max(0, 2 - p2Count)} more picks`}</button>
+            }}>{canFindMatch ? '⚖️ Deliver the Verdict' : `Need ${Math.max(0, 2 - p1Count) + Math.max(0, 2 - p2Count)} more picks`}</button>
           </div>
         </>
       )}
 
       {phase === 'calculating' && (
         <div style={{textAlign:'center',padding:'60px 20px'}}>
-          <div style={{width:'80px',height:'80px',margin:'0 auto 24px',position:'relative'}}>
-            <div style={{position:'absolute',inset:0,borderRadius:'50%',background:'conic-gradient(var(--p1),var(--gold),var(--p2),var(--p1))',animation:'spin 1.5s linear infinite'}}/>
-            <div style={{position:'absolute',inset:'8px',borderRadius:'50%',background:'var(--bg)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'32px'}}>🔮</div>
+          {/* Animated scales */}
+          <div style={{position:'relative',width:'140px',height:'140px',margin:'0 auto 32px'}}>
+            {/* Outer glow ring */}
+            <div style={{
+              position:'absolute',inset:'-20px',borderRadius:'50%',
+              background:'radial-gradient(circle, rgba(255,217,61,0.2) 0%, transparent 70%)',
+              animation:'pulse 2s ease-in-out infinite'
+            }}/>
+            {/* Spinning gradient */}
+            <div style={{
+              position:'absolute',inset:0,borderRadius:'50%',
+              background:'conic-gradient(var(--p1),var(--gold),var(--p2),var(--purple),var(--p1))',
+              animation:'spin 3s linear infinite'
+            }}/>
+            {/* Inner spinning (opposite) */}
+            <div style={{
+              position:'absolute',inset:'8px',borderRadius:'50%',
+              background:'conic-gradient(var(--p2),var(--purple),var(--gold),var(--p1),var(--p2))',
+              animation:'spin 2s linear infinite reverse'
+            }}/>
+            {/* Center icon */}
+            <div style={{
+              position:'absolute',inset:'20px',borderRadius:'50%',background:'var(--bg)',
+              display:'flex',alignItems:'center',justifyContent:'center',fontSize:'48px',
+              animation:'pulse 1.5s ease-in-out infinite'
+            }}>⚖️</div>
+            {/* Orbiting particles */}
+            {[0,1,2,3].map(i => (
+              <div key={i} style={{
+                position:'absolute',width:'8px',height:'8px',borderRadius:'50%',
+                background: i % 2 === 0 ? 'var(--gold)' : 'var(--purple)',
+                top:'50%',left:'50%',
+                transform:`rotate(${i * 90}deg) translateX(80px)`,
+                animation:`spin ${4 + i}s linear infinite`,
+                boxShadow: `0 0 10px ${i % 2 === 0 ? 'var(--gold)' : 'var(--purple)'}`
+              }}/>
+            ))}
           </div>
-          <h2 className="playfair" style={{fontSize:'24px',marginBottom:'12px',background:'linear-gradient(135deg,var(--p1),var(--p2))',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent'}}>Finding your match...</h2>
+          
+          <h2 className="space" style={{fontSize:'28px',marginBottom:'16px',background:'linear-gradient(135deg,var(--p1),var(--gold),var(--p2))',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent'}}>
+            Deliberating...
+          </h2>
+          
+          {/* Animated status messages */}
+          <div style={{minHeight:'80px'}}>
+            <DeliberationMessages />
+          </div>
         </div>
       )}
 
       {phase === 'result' && result && (
         <div style={{animation:'reveal 0.5s ease-out'}}>
-          <div style={{textAlign:'center',marginBottom:'24px'}}>
-            <div style={{fontSize:'40px',marginBottom:'8px'}}>🎉</div>
-            <h2 className="playfair" style={{fontSize:'26px',fontWeight:'700',marginBottom:'6px'}}>Tonight's Recommendation</h2>
+          <div style={{textAlign:'center',marginBottom:'28px'}}>
+            <div style={{fontSize:'56px',marginBottom:'12px',animation:'verdictReveal 0.6s ease-out'}}>⚖️</div>
+            <h2 className="space" style={{fontSize:'32px',fontWeight:'700',marginBottom:'8px'}}>The Verdict Is In</h2>
+            <p style={{color:'var(--muted)',fontSize:'14px'}}>The court has ruled. No appeals.</p>
           </div>
 
-          <div style={{display:'flex',flexDirection:'column',gap:'16px',maxWidth:'650px',margin:'0 auto'}}>
+          <div style={{display:'flex',flexDirection:'column',gap:'18px',maxWidth:'700px',margin:'0 auto'}}>
             {result.map((r, i) => <ResultMovieCard key={r.movie.id} movie={r.movie} score={r.matchScore} rank={i + 1} isWinner={i === 0} />)}
           </div>
 
-          <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(240px,1fr))',gap:'16px',marginTop:'32px',maxWidth:'650px',margin:'32px auto 0'}}>
-            {[['Partner 1', p1Picks, 'var(--p1)', '❤️'], ['Partner 2', p2Picks, 'var(--p2)', '💚']].map(([name, picks, color, emoji]) => (
-              <div key={name} style={{background:'var(--card)',borderRadius:'14px',padding:'16px',borderLeft:`3px solid ${color}`}}>
-                <h4 style={{color,fontSize:'13px',fontWeight:'600',marginBottom:'10px'}}>{name}'s Picks</h4>
-                <div style={{display:'flex',flexDirection:'column',gap:'6px'}}>
+          <FairnessBar p1Percent={fairnessScore.p1} p2Percent={fairnessScore.p2} />
+
+          <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(260px,1fr))',gap:'18px',marginTop:'28px',maxWidth:'700px',margin:'28px auto 0'}}>
+            {[['😇 Your Picks', p1Picks, 'var(--p2)', '💚'], ['😈 Their Picks', p2Picks, 'var(--p1)', '❤️']].map(([name, picks, color, emoji]) => (
+              <div key={name} style={{background:'var(--card)',borderRadius:'16px',padding:'18px',borderLeft:`4px solid ${color}`}}>
+                <h4 style={{color,fontSize:'14px',fontWeight:'700',marginBottom:'12px'}}>{name}</h4>
+                <div style={{display:'flex',flexDirection:'column',gap:'8px'}}>
                   {Object.values(picks).map(({movie, expr}) => (
-                    <div key={movie.id} style={{display:'flex',alignItems:'center',gap:'6px',fontSize:'12px'}}>
+                    <div key={movie.id} style={{display:'flex',alignItems:'center',gap:'8px',fontSize:'13px'}}>
                       <span style={{flex:1,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{movie.title}</span>
                       <span style={{color,flexShrink:0}}>{emoji.repeat(Math.min(expr, 3))}</span>
                     </div>
@@ -704,28 +955,61 @@ const App = () => {
             ))}
           </div>
 
-          {/* Funny Quotes Section */}
-          <div style={{maxWidth:'650px',margin:'40px auto 0'}}>
-            <div style={{background:'linear-gradient(135deg, var(--card), var(--elevated))',borderRadius:'16px',padding:'24px',textAlign:'center'}}>
-              <div style={{display:'flex',flexDirection:'column',gap:'16px'}}>
+          <div style={{maxWidth:'700px',margin:'32px auto 0'}}>
+            <div style={{background:'linear-gradient(135deg, var(--card), var(--elevated))',borderRadius:'20px',padding:'28px',textAlign:'center'}}>
+              <div style={{display:'flex',flexDirection:'column',gap:'14px',marginBottom:'24px'}}>
                 {randomQuotes.map((quote, i) => (
-                  <p key={i} style={{
-                    fontSize:'14px',color:'var(--muted)',fontStyle:'italic',lineHeight:'1.6',
-                    animation:`fadeIn 0.5s ease-out ${0.3 + i * 0.2}s both`
-                  }}>"{quote}"</p>
+                  <p key={i} style={{fontSize:'15px',color:'var(--muted)',fontStyle:'italic',lineHeight:'1.6',animation:`fadeIn 0.5s ease-out ${0.3 + i * 0.2}s both`}}>"{quote}"</p>
                 ))}
               </div>
+              <button onClick={shareResult} className="share-btn">
+                📤 Send this to them
+              </button>
             </div>
           </div>
 
           <div style={{textAlign:'center',marginTop:'32px'}}>
-            <button onClick={reset} style={{padding:'12px 32px',borderRadius:'50px',border:'2px solid var(--gold)',background:'transparent',color:'var(--gold)',fontSize:'14px',fontWeight:'600',cursor:'pointer'}}>Start Over 🎬</button>
+            <button onClick={reset} style={{padding:'14px 36px',borderRadius:'50px',border:'2px solid var(--gold)',background:'transparent',color:'var(--gold)',fontSize:'15px',fontWeight:'600',cursor:'pointer'}}>Start Over ⚖️</button>
           </div>
         </div>
       )}
 
-      <footer style={{textAlign:'center',padding:'32px 16px',color:'var(--dim)',fontSize:'11px'}}>
-        <p>Made with 💕 for movie nights</p>
+      {/* Sign Up / Login Section - show on setup phases */}
+      {(phase === 'q1' || phase === 'q2' || phase === 'q3') && (
+        <div style={{maxWidth:'500px',margin:'40px auto 0',padding:'0 16px',animation:'fadeIn 0.6s ease-out 0.3s both'}}>
+          <div style={{background:'linear-gradient(135deg, var(--card), var(--elevated))',borderRadius:'20px',padding:'28px',textAlign:'center',border:'1px solid var(--elevated)'}}>
+            <div style={{fontSize:'32px',marginBottom:'12px'}}>✨</div>
+            <h3 className="space" style={{fontSize:'18px',fontWeight:'700',marginBottom:'10px'}}>Want us to remember?</h3>
+            <p style={{fontSize:'14px',color:'var(--muted)',lineHeight:'1.6',marginBottom:'20px'}}>
+              Create an account and we'll track who picked last time, learn your tastes, and deliver better recommendations over time.
+            </p>
+            <div style={{display:'flex',gap:'12px',justifyContent:'center',flexWrap:'wrap',marginBottom:'16px'}}>
+              <button style={{
+                padding:'14px 32px',borderRadius:'50px',border:'none',
+                background:'linear-gradient(135deg,var(--purple),var(--p1))',
+                color:'white',fontSize:'15px',fontWeight:'700',cursor:'pointer',
+                boxShadow:'0 8px 25px rgba(168,85,247,0.3)',transition:'transform 0.2s'
+              }} onMouseOver={(e)=>e.target.style.transform='scale(1.05)'} onMouseOut={(e)=>e.target.style.transform='scale(1)'}>
+                Sign Up Free
+              </button>
+              <button style={{
+                padding:'14px 32px',borderRadius:'50px',border:'2px solid var(--elevated)',
+                background:'transparent',color:'var(--muted)',fontSize:'15px',fontWeight:'600',cursor:'pointer',
+                transition:'all 0.2s'
+              }} onMouseOver={(e)=>{e.target.style.borderColor='var(--gold)';e.target.style.color='var(--gold)'}} onMouseOut={(e)=>{e.target.style.borderColor='var(--elevated)';e.target.style.color='var(--muted)'}}>
+                Log In
+              </button>
+            </div>
+            <p style={{fontSize:'12px',color:'var(--dim)'}}>
+              Or use the free search above — no account needed
+            </p>
+          </div>
+        </div>
+      )}
+
+      <footer style={{textAlign:'center',padding:'40px 16px 20px',color:'var(--dim)',fontSize:'11px'}}>
+        <p style={{marginBottom:'8px'}}>© Tyler Friddle 2026. All rights reserved.</p>
+        <p>Made for couples who need a referee 🎬</p>
       </footer>
     </div>
   );
@@ -735,4 +1019,3 @@ ReactDOM.render(<App />, document.getElementById('root'));
 </script>
 </body>
 </html>
-//Copyright © 2026 Tyler Friddle. All rights reserved.
