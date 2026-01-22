@@ -1,0 +1,734 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MovieNight</title>
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700;900&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    :root {
+      --p1: #FF6B6B; --p1-glow: rgba(255,107,107,0.3);
+      --p2: #4ECDC4; --p2-glow: rgba(78,205,196,0.3);
+      --gold: #F7D794;
+      --bg: #0a0a0f; --card: #13131a; --elevated: #1a1a24;
+      --text: #FAFAFA; --muted: #9898A6; --dim: #5A5A6E;
+    }
+    body {
+      font-family: 'DM Sans', sans-serif;
+      background: var(--bg); color: var(--text);
+      min-height: 100vh; overflow-x: hidden;
+    }
+    body::before {
+      content: ''; position: fixed; inset: 0; pointer-events: none; z-index: 0;
+      background: radial-gradient(ellipse at 20% 20%, rgba(255,107,107,0.07) 0%, transparent 50%),
+                  radial-gradient(ellipse at 80% 20%, rgba(78,205,196,0.07) 0%, transparent 50%),
+                  radial-gradient(ellipse at 50% 70%, rgba(247,215,148,0.04) 0%, transparent 60%);
+    }
+    #root { position: relative; z-index: 1; }
+    .playfair { font-family: 'Playfair Display', serif; }
+    @keyframes heartbeat { 0%,100%{transform:scale(1)} 50%{transform:scale(1.1)} }
+    @keyframes reveal { 0%{opacity:0;transform:scale(0.95) translateY(15px)} 100%{opacity:1;transform:scale(1) translateY(0)} }
+    @keyframes spin { to{transform:rotate(360deg)} }
+    @keyframes glow { 0%,100%{box-shadow:0 0 25px rgba(247,215,148,0.4)} 50%{box-shadow:0 0 45px rgba(247,215,148,0.6)} }
+    @keyframes slideIn { 0%{opacity:0;transform:translateY(10px)} 100%{opacity:1;transform:translateY(0)} }
+    @keyframes fadeIn { 0%{opacity:0} 100%{opacity:1} }
+    input[type="range"] { -webkit-appearance:none; background:transparent; cursor:pointer; width:100%; }
+    input[type="range"]::-webkit-slider-thumb { -webkit-appearance:none; height:18px; width:18px; border-radius:50%; background:currentColor; margin-top:-6px; box-shadow:0 2px 8px rgba(0,0,0,0.4); }
+    input[type="range"]::-webkit-slider-runnable-track { height:6px; border-radius:3px; }
+    input[type="range"]::-moz-range-thumb { height:18px; width:18px; border-radius:50%; background:currentColor; border:none; }
+    input[type="range"]::-moz-range-track { height:6px; border-radius:3px; }
+    .btn-choice { 
+      padding: 14px 28px; border-radius: 14px; border: 2px solid var(--elevated); 
+      background: var(--card); color: var(--muted); font-weight: 600; cursor: pointer; 
+      transition: all 0.25s; font-size: 15px;
+    }
+    .btn-choice:hover { border-color: var(--gold); color: var(--text); }
+    .btn-choice.active { border-color: var(--gold); background: rgba(247,215,148,0.15); color: var(--gold); }
+    .search-input:focus { border-color: var(--gold) !important; outline: none; }
+    .rating-btn {
+      width: 44px; height: 44px; border-radius: 50%; border: 2px solid var(--elevated);
+      background: var(--card); color: var(--muted); font-size: 16px; cursor: pointer;
+      transition: all 0.2s; display: flex; align-items: center; justify-content: center;
+    }
+    .rating-btn:hover { border-color: var(--gold); transform: scale(1.1); }
+    .rating-btn.active { border-color: var(--gold); background: var(--gold); color: var(--bg); }
+  </style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useEffect, useCallback } = React;
+
+const API_KEY = '3f81cab7617ce7a5f47995d7d12a6512';
+const TMDB = 'https://api.themoviedb.org/3';
+const IMG = 'https://image.tmdb.org/t/p/w500';
+const IMG_SM = 'https://image.tmdb.org/t/p/w200';
+
+const FUNNY_QUOTES = [
+  "All is fair in love and war... and movie night. ⚔️",
+  "Don't worry, you'll get it next time. 😏",
+  "The couple that watches together, stays together. 🍿",
+  "Remember: no phones during the movie. 📵",
+  "If you fall asleep, you forfeit next week's pick. 😴",
+  "May the popcorn be buttery and the couch be comfy. 🛋️",
+  "The algorithm has spoken. No appeals. ⚖️",
+  "Warning: Side effects may include cuddling. 🤗",
+  "This decision was made with love, math, and chaos. 🎲",
+  "Compromise: when nobody gets what they want, but together. 💕",
+  "Plot twist: you're both going to love it. 🎭",
+  "At least you didn't have to flip a coin. 🪙",
+  "Science says this is the one. Don't argue with science. 🔬",
+  "Your rom-com is in another castle. 🏰",
+  "May your snacks be plentiful and your bladder be strong. 🥤"
+];
+
+const GENRES = {
+  28: { name:'Action', intensity:0.85, romance:0.25, comfort:0.35, cerebral:0.3 },
+  12: { name:'Adventure', intensity:0.7, romance:0.4, comfort:0.55, cerebral:0.4 },
+  16: { name:'Animation', intensity:0.35, romance:0.5, comfort:0.85, cerebral:0.4 },
+  35: { name:'Comedy', intensity:0.25, romance:0.6, comfort:0.9, cerebral:0.3 },
+  80: { name:'Crime', intensity:0.75, romance:0.3, comfort:0.3, cerebral:0.7 },
+  99: { name:'Documentary', intensity:0.2, romance:0.15, comfort:0.5, cerebral:0.95 },
+  18: { name:'Drama', intensity:0.5, romance:0.7, comfort:0.45, cerebral:0.65 },
+  10751: { name:'Family', intensity:0.2, romance:0.35, comfort:0.95, cerebral:0.25 },
+  14: { name:'Fantasy', intensity:0.55, romance:0.55, comfort:0.65, cerebral:0.5 },
+  36: { name:'History', intensity:0.45, romance:0.4, comfort:0.4, cerebral:0.85 },
+  27: { name:'Horror', intensity:0.95, romance:0.2, comfort:0.15, cerebral:0.4 },
+  10402: { name:'Music', intensity:0.4, romance:0.7, comfort:0.8, cerebral:0.35 },
+  9648: { name:'Mystery', intensity:0.65, romance:0.35, comfort:0.35, cerebral:0.9 },
+  10749: { name:'Romance', intensity:0.3, romance:1.0, comfort:0.7, cerebral:0.35 },
+  878: { name:'Sci-Fi', intensity:0.65, romance:0.35, comfort:0.45, cerebral:0.8 },
+  10770: { name:'TV Movie', intensity:0.3, romance:0.5, comfort:0.8, cerebral:0.3 },
+  53: { name:'Thriller', intensity:0.9, romance:0.25, comfort:0.2, cerebral:0.75 },
+  10752: { name:'War', intensity:0.9, romance:0.35, comfort:0.2, cerebral:0.6 },
+  37: { name:'Western', intensity:0.65, romance:0.4, comfort:0.4, cerebral:0.4 }
+};
+
+const fetchTMDB = async (endpoint) => {
+  try {
+    const sep = endpoint.includes('?') ? '&' : '?';
+    const r = await fetch(`${TMDB}${endpoint}${sep}api_key=${API_KEY}`);
+    if (!r.ok) throw new Error('API error');
+    return r.json();
+  } catch (e) { return null; }
+};
+
+const normalizeMovie = (m) => ({
+  id: m.id, title: m.title, year: m.release_date?.split('-')[0] || 'TBA',
+  rating: m.vote_average || 0, genre_ids: m.genre_ids || [],
+  poster: m.poster_path ? `${IMG}${m.poster_path}` : null,
+  posterSm: m.poster_path ? `${IMG_SM}${m.poster_path}` : null,
+  overview: m.overview || ''
+});
+
+const ExpressionSlider = ({ value, onChange, color }) => {
+  const labels = ['meh', 'okay', 'like it', 'love it!', 'MUST SEE!'];
+  return (
+    <div style={{marginTop:'8px'}}>
+      <input type="range" min="1" max="5" value={value}
+        onChange={e => onChange(+e.target.value)}
+        style={{ background: `linear-gradient(to right, ${color} ${(value-1)*25}%, #2a2a35 ${(value-1)*25}%)`, color }}
+      />
+      <div style={{textAlign:'center',fontSize:'10px',color,fontWeight:'700',marginTop:'2px',textTransform:'uppercase',letterSpacing:'0.5px'}}>
+        {labels[value-1]}
+      </div>
+    </div>
+  );
+};
+
+const PickCard = ({ movie, expression, onExpressionChange, onRemove, color, index }) => (
+  <div style={{
+    background:'var(--card)', borderRadius:'14px', padding:'12px',
+    border:`2px solid ${color}`, position:'relative',
+    animation:`slideIn 0.3s ease-out ${index * 0.08}s both`
+  }}>
+    <button onClick={onRemove} style={{
+      position:'absolute', top:'-8px', right:'-8px', width:'22px', height:'22px',
+      borderRadius:'50%', border:'none', background:'#555', color:'white',
+      cursor:'pointer', fontSize:'12px', fontWeight:'bold',
+      display:'flex', alignItems:'center', justifyContent:'center'
+    }}>×</button>
+    <div style={{display:'flex',gap:'10px',alignItems:'center'}}>
+      {movie.poster ? (
+        <img src={movie.posterSm || movie.poster} alt="" style={{width:'45px',height:'68px',objectFit:'cover',borderRadius:'8px',flexShrink:0}} onError={(e) => e.target.style.display = 'none'} />
+      ) : (
+        <div style={{width:'45px',height:'68px',background:'var(--elevated)',borderRadius:'8px',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'20px',flexShrink:0}}>🎬</div>
+      )}
+      <div style={{flex:1,minWidth:0}}>
+        <h4 style={{fontSize:'12px',fontWeight:'600',marginBottom:'2px',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{movie.title}</h4>
+        <p style={{fontSize:'10px',color:'var(--dim)'}}>{movie.year}</p>
+        <ExpressionSlider value={expression} onChange={onExpressionChange} color={color} />
+      </div>
+    </div>
+  </div>
+);
+
+const MovieResult = ({ movie, onSelect, disabled, alreadyPicked }) => {
+  const [hover, setHover] = useState(false);
+  return (
+    <div onClick={() => !disabled && !alreadyPicked && onSelect(movie)}
+      onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)}
+      style={{
+        display:'flex', gap:'10px', padding:'10px 12px', borderRadius:'10px',
+        background: hover && !disabled && !alreadyPicked ? 'var(--elevated)' : 'transparent',
+        cursor: disabled || alreadyPicked ? 'not-allowed' : 'pointer',
+        opacity: alreadyPicked ? 0.5 : 1, transition:'all 0.2s'
+      }}>
+      {movie.poster ? (
+        <img src={movie.posterSm || movie.poster} alt="" style={{width:'40px',height:'60px',objectFit:'cover',borderRadius:'6px',flexShrink:0}} onError={(e) => e.target.style.display = 'none'} />
+      ) : (
+        <div style={{width:'40px',height:'60px',background:'var(--card)',borderRadius:'6px',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'16px',flexShrink:0}}>🎬</div>
+      )}
+      <div style={{flex:1,minWidth:0}}>
+        <h4 style={{fontSize:'13px',fontWeight:'600',marginBottom:'2px'}}>{movie.title}</h4>
+        <p style={{fontSize:'11px',color:'var(--dim)'}}>{movie.year}{movie.rating > 0 && ` • ★ ${movie.rating.toFixed(1)}`}</p>
+        {alreadyPicked && <span style={{fontSize:'9px',color:'var(--gold)'}}>Already picked</span>}
+      </div>
+    </div>
+  );
+};
+
+const PartnerColumn = ({ name, color, picks, onAddPick, onRemovePick, onExpressionChange, allPicks, movies, onSearch, loading }) => {
+  const [query, setQuery] = useState('');
+  const [showResults, setShowResults] = useState(false);
+  const [searchResults, setSearchResults] = useState([]);
+  const [searching, setSearching] = useState(false);
+
+  const doSearch = async (q) => {
+    if (!q.trim()) return;
+    setSearching(true);
+    const results = await onSearch(q);
+    setSearchResults(results);
+    setSearching(false);
+    setShowResults(true);
+  };
+
+  const handleSelect = (movie) => {
+    if (picks.length < 3) {
+      onAddPick(movie);
+      setQuery('');
+      setShowResults(false);
+      setSearchResults([]);
+    }
+  };
+
+  const displayResults = query.trim() && searchResults.length > 0 ? searchResults : movies.slice(0, 10);
+  const pickedIds = new Set([...Object.keys(allPicks.p1 || {}), ...Object.keys(allPicks.p2 || {})].map(String));
+  const isComplete = picks.length >= 2;
+
+  return (
+    <div style={{
+      flex:1, minWidth:'280px', background:'var(--card)', borderRadius:'20px',
+      padding:'20px', border:`2px solid ${isComplete ? color : 'transparent'}`,
+      boxShadow: isComplete ? `0 0 25px ${color}30` : 'none', transition:'all 0.4s'
+    }}>
+      <div style={{textAlign:'center',marginBottom:'16px'}}>
+        <div style={{width:'44px',height:'44px',borderRadius:'50%',background:color,display:'flex',alignItems:'center',justifyContent:'center',margin:'0 auto 10px',fontSize:'20px',boxShadow:`0 4px 15px ${color}40`}}>👤</div>
+        <h2 style={{fontSize:'18px',fontWeight:'700',color,marginBottom:'2px'}}>{name}</h2>
+        <p style={{fontSize:'12px',color:'var(--muted)'}}>{picks.length}/3 picks {isComplete && '✓'}</p>
+      </div>
+      <div style={{display:'flex',flexDirection:'column',gap:'10px',marginBottom:'16px',minHeight:'240px'}}>
+        {picks.map((pick, i) => (
+          <PickCard key={pick.movie.id} movie={pick.movie} expression={pick.expr}
+            onExpressionChange={(val) => onExpressionChange(pick.movie.id, val)}
+            onRemove={() => onRemovePick(pick.movie.id)} color={color} index={i} />
+        ))}
+        {picks.length < 3 && [...Array(3 - picks.length)].map((_, i) => (
+          <div key={`empty-${i}`} style={{
+            height:'92px', borderRadius:'14px', border:`2px dashed ${i === 0 && picks.length < 2 ? color+'60' : 'var(--elevated)'}`,
+            display:'flex',alignItems:'center',justifyContent:'center',color:'var(--dim)',fontSize:'12px'
+          }}>{i === 0 && picks.length < 2 ? `Pick ${2 - picks.length} more...` : 'Optional...'}</div>
+        ))}
+      </div>
+      {picks.length < 3 && (
+        <div style={{position:'relative'}}>
+          <form onSubmit={(e) => { e.preventDefault(); doSearch(query); }}>
+            <input value={query} onChange={(e) => { setQuery(e.target.value); if (!e.target.value) setShowResults(true); }}
+              onFocus={() => setShowResults(true)} placeholder="Search movies..." className="search-input"
+              style={{width:'100%',padding:'11px 14px',borderRadius:'10px',border:'2px solid var(--elevated)',background:'var(--bg)',color:'var(--text)',fontSize:'13px'}} />
+          </form>
+          {showResults && (
+            <div style={{position:'absolute',top:'100%',left:0,right:0,marginTop:'6px',background:'var(--card)',borderRadius:'10px',maxHeight:'260px',overflowY:'auto',zIndex:100,boxShadow:'0 10px 40px rgba(0,0,0,0.5)',border:'1px solid var(--elevated)'}}>
+              {searching || loading ? (
+                <div style={{padding:'16px',textAlign:'center',color:'var(--muted)',fontSize:'13px'}}>
+                  <div style={{width:'20px',height:'20px',border:'2px solid var(--elevated)',borderTopColor:color,borderRadius:'50%',animation:'spin 0.8s linear infinite',margin:'0 auto 8px'}}/>
+                  {searching ? 'Searching...' : 'Loading...'}
+                </div>
+              ) : displayResults.length > 0 ? (
+                displayResults.map(m => <MovieResult key={m.id} movie={m} onSelect={handleSelect} disabled={picks.length >= 3} alreadyPicked={pickedIds.has(String(m.id))} />)
+              ) : query.trim() ? <div style={{padding:'16px',textAlign:'center',color:'var(--muted)',fontSize:'13px'}}>No results</div> : null}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
+
+const ResultMovieCard = ({ movie, score, rank, isWinner }) => (
+  <div style={{
+    background: isWinner ? 'linear-gradient(135deg,var(--card),var(--elevated))' : 'var(--card)',
+    borderRadius: isWinner ? '20px' : '14px', padding: isWinner ? '20px' : '14px',
+    border: isWinner ? '2px solid var(--gold)' : 'none',
+    boxShadow: isWinner ? '0 0 50px rgba(247,215,148,0.15)' : '0 4px 15px rgba(0,0,0,0.2)',
+    animation: `reveal 0.5s ease-out ${rank * 0.12}s both`
+  }}>
+    <div style={{display:'flex',gap:'16px',alignItems:'flex-start'}}>
+      {!isWinner && (
+        <div style={{width:'28px',height:'28px',borderRadius:'50%',flexShrink:0,
+          background: rank === 1 ? 'linear-gradient(135deg,#FFD700,#FFA500)' : rank === 2 ? 'linear-gradient(135deg,#C0C0C0,#888)' : 'linear-gradient(135deg,#CD7F32,#8B4513)',
+          display:'flex',alignItems:'center',justifyContent:'center',fontWeight:'700',color:'white',fontSize:'12px'}}>{rank}</div>
+      )}
+      <div style={{borderRadius: isWinner ? '14px' : '10px',overflow:'hidden',flexShrink:0,boxShadow:'0 6px 25px rgba(0,0,0,0.4)'}}>
+        {movie.poster ? (
+          <img src={movie.poster} alt={movie.title} style={{width: isWinner ? '160px' : '70px', display:'block'}} onError={(e) => e.target.style.display = 'none'} />
+        ) : (
+          <div style={{width: isWinner ? '160px' : '70px', height: isWinner ? '240px' : '105px', background:'var(--elevated)',display:'flex',alignItems:'center',justifyContent:'center',fontSize: isWinner ? '40px' : '20px'}}>🎬</div>
+        )}
+      </div>
+      <div style={{flex:1}}>
+        {isWinner && <div style={{fontSize:'11px',color:'var(--gold)',fontWeight:'600',marginBottom:'6px',textTransform:'uppercase',letterSpacing:'1px'}}>🏆 Tonight's Pick</div>}
+        <h3 className="playfair" style={{fontSize: isWinner ? '22px' : '15px', fontWeight:'600',marginBottom:'6px',lineHeight:1.2}}>{movie.title}</h3>
+        <div style={{display:'flex',gap:'6px',marginBottom: isWinner ? '10px' : '6px',flexWrap:'wrap'}}>
+          {movie.rating > 0 && <span style={{padding:'3px 8px',borderRadius:'12px',background:'var(--bg)',fontSize:'11px'}}>★ {movie.rating.toFixed(1)}</span>}
+          <span style={{padding:'3px 8px',borderRadius:'12px',background:'var(--bg)',fontSize:'11px'}}>{movie.year}</span>
+        </div>
+        <div style={{display:'inline-block',padding: isWinner ? '10px 16px' : '6px 12px',borderRadius:'10px',background:'linear-gradient(135deg,rgba(255,107,107,0.12),rgba(78,205,196,0.12))'}}>
+          <span style={{fontSize:'11px',color:'var(--muted)',marginRight:'6px'}}>Match:</span>
+          <span style={{fontSize: isWinner ? '24px' : '16px', fontWeight:'700',color:'var(--gold)'}}>{score}%</span>
+        </div>
+        {isWinner && movie.overview && <p style={{fontSize:'12px',color:'var(--muted)',marginTop:'10px',lineHeight:'1.5'}}>{movie.overview.slice(0,130)}...</p>}
+      </div>
+    </div>
+  </div>
+);
+
+const RatingButtons = ({ value, onChange, color }) => {
+  const emojis = ['😴', '😐', '🙂', '😊', '🤩'];
+  return (
+    <div style={{display:'flex',gap:'8px',justifyContent:'center'}}>
+      {[1,2,3,4,5].map(n => (
+        <button key={n} className={`rating-btn ${value === n ? 'active' : ''}`} onClick={() => onChange(n)}
+          style={value === n ? {borderColor: color, background: color, color: 'var(--bg)'} : {}}>
+          {emojis[n-1]}
+        </button>
+      ))}
+    </div>
+  );
+};
+
+const LastMovieSearch = ({ value, onChange, movies, onSearch }) => {
+  const [query, setQuery] = useState('');
+  const [showResults, setShowResults] = useState(false);
+  const [searchResults, setSearchResults] = useState([]);
+  const [searching, setSearching] = useState(false);
+
+  const doSearch = async (q) => {
+    if (!q.trim()) return;
+    setSearching(true);
+    const results = await onSearch(q);
+    setSearchResults(results);
+    setSearching(false);
+    setShowResults(true);
+  };
+
+  if (value) {
+    return (
+      <div style={{display:'flex',alignItems:'center',gap:'12px',padding:'12px',background:'var(--elevated)',borderRadius:'12px'}}>
+        {value.poster && <img src={value.posterSm || value.poster} alt="" style={{width:'40px',height:'60px',objectFit:'cover',borderRadius:'6px'}} />}
+        <div style={{flex:1}}>
+          <p style={{fontWeight:'600',fontSize:'14px'}}>{value.title}</p>
+          <p style={{fontSize:'12px',color:'var(--dim)'}}>{value.year}</p>
+        </div>
+        <button onClick={() => onChange(null)} style={{padding:'6px 12px',borderRadius:'8px',border:'none',background:'var(--card)',color:'var(--muted)',cursor:'pointer',fontSize:'12px'}}>Change</button>
+      </div>
+    );
+  }
+
+  const displayResults = query.trim() && searchResults.length > 0 ? searchResults : movies.slice(0, 8);
+
+  return (
+    <div style={{position:'relative'}}>
+      <form onSubmit={(e) => { e.preventDefault(); doSearch(query); }}>
+        <input value={query} onChange={(e) => { setQuery(e.target.value); setShowResults(true); }}
+          onFocus={() => setShowResults(true)} placeholder="Search for the movie..." className="search-input"
+          style={{width:'100%',padding:'14px 16px',borderRadius:'12px',border:'2px solid var(--elevated)',background:'var(--bg)',color:'var(--text)',fontSize:'14px'}} />
+      </form>
+      {showResults && (
+        <div style={{position:'absolute',top:'100%',left:0,right:0,marginTop:'6px',background:'var(--card)',borderRadius:'10px',maxHeight:'240px',overflowY:'auto',zIndex:100,boxShadow:'0 10px 40px rgba(0,0,0,0.5)',border:'1px solid var(--elevated)'}}>
+          {searching ? (
+            <div style={{padding:'16px',textAlign:'center',color:'var(--muted)',fontSize:'13px'}}>
+              <div style={{width:'20px',height:'20px',border:'2px solid var(--elevated)',borderTopColor:'var(--gold)',borderRadius:'50%',animation:'spin 0.8s linear infinite',margin:'0 auto 8px'}}/>Searching...
+            </div>
+          ) : displayResults.length > 0 ? displayResults.map(m => (
+            <MovieResult key={m.id} movie={m} onSelect={(movie) => { onChange(movie); setQuery(''); setShowResults(false); }} disabled={false} alreadyPicked={false} />
+          )) : query.trim() ? <div style={{padding:'16px',textAlign:'center',color:'var(--muted)',fontSize:'13px'}}>No results</div> : null}
+        </div>
+      )}
+    </div>
+  );
+};
+
+const App = () => {
+  const [phase, setPhase] = useState('q1');
+  const [movies, setMovies] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [p1Picks, setP1Picks] = useState({});
+  const [p2Picks, setP2Picks] = useState({});
+  const [lastPicker, setLastPicker] = useState(null);
+  const [lastMovieRatingP1, setLastMovieRatingP1] = useState(null);
+  const [lastMovieRatingP2, setLastMovieRatingP2] = useState(null);
+  const [lastMovie, setLastMovie] = useState(null);
+  const [result, setResult] = useState(null);
+  const [cache, setCache] = useState({});
+  const [randomQuotes, setRandomQuotes] = useState([]);
+
+  useEffect(() => {
+    const load = async () => {
+      setLoading(true);
+      try {
+        const [d1, d2, d3] = await Promise.all([
+          fetchTMDB('/movie/popular?language=en-US&page=1'),
+          fetchTMDB('/movie/top_rated?language=en-US&page=1'),
+          fetchTMDB('/movie/now_playing?language=en-US&page=1')
+        ]);
+        const all = [...(d1?.results || []), ...(d2?.results || []), ...(d3?.results || [])];
+        const unique = [...new Map(all.map(m => [m.id, m])).values()];
+        const normalized = unique.map(normalizeMovie);
+        setMovies(normalized);
+        normalized.forEach(m => setCache(prev => ({...prev, [m.id]: m})));
+      } catch (e) {}
+      setLoading(false);
+    };
+    load();
+  }, []);
+
+  const search = async (query) => {
+    try {
+      const data = await fetchTMDB(`/search/movie?query=${encodeURIComponent(query)}&language=en-US&page=1`);
+      if (data?.results) {
+        const normalized = data.results.map(normalizeMovie);
+        normalized.forEach(m => setCache(prev => ({...prev, [m.id]: m})));
+        return normalized;
+      }
+    } catch (e) {}
+    return [];
+  };
+
+  const addPick = (movie, partner) => {
+    const setPicks = partner === 1 ? setP1Picks : setP2Picks;
+    setPicks(prev => Object.keys(prev).length >= 3 ? prev : {...prev, [movie.id]: {movie, expr: 3}});
+    setCache(prev => ({...prev, [movie.id]: movie}));
+  };
+
+  const removePick = (movieId, partner) => {
+    const setPicks = partner === 1 ? setP1Picks : setP2Picks;
+    setPicks(prev => { const {[movieId]: _, ...rest} = prev; return rest; });
+  };
+
+  const setExpr = (movieId, val, partner) => {
+    const setPicks = partner === 1 ? setP1Picks : setP2Picks;
+    setPicks(prev => ({...prev, [movieId]: {...prev[movieId], expr: val}}));
+  };
+
+  const p1Count = Object.keys(p1Picks).length;
+  const p2Count = Object.keys(p2Picks).length;
+  const canFindMatch = p1Count >= 2 && p2Count >= 2;
+
+  const findMatch = async () => {
+    setPhase('calculating');
+    
+    // Pick 3 random quotes
+    const shuffled = [...FUNNY_QUOTES].sort(() => Math.random() - 0.5);
+    setRandomQuotes(shuffled.slice(0, 3));
+
+    let fairnessP1 = 1.0, fairnessP2 = 1.0;
+    if (lastPicker === 'p1') {
+      fairnessP1 = 0.7; fairnessP2 = 1.3;
+      if (lastMovieRatingP2 && lastMovieRatingP2 <= 2) { fairnessP1 = 0.5; fairnessP2 = 1.5; }
+      if (lastMovieRatingP1 >= 4 && lastMovieRatingP2 >= 4) { fairnessP1 = 0.9; fairnessP2 = 1.1; }
+    } else if (lastPicker === 'p2') {
+      fairnessP1 = 1.3; fairnessP2 = 0.7;
+      if (lastMovieRatingP1 && lastMovieRatingP1 <= 2) { fairnessP1 = 1.5; fairnessP2 = 0.5; }
+      if (lastMovieRatingP1 >= 4 && lastMovieRatingP2 >= 4) { fairnessP1 = 1.1; fairnessP2 = 0.9; }
+    }
+
+    const buildProfile = (picks, multiplier) => {
+      const p = { genres: {}, intensity: 0, romance: 0, comfort: 0, cerebral: 0, totalW: 0 };
+      Object.values(picks).forEach(({movie, expr}) => {
+        const w = (expr * expr) * multiplier;
+        p.totalW += w;
+        (movie.genre_ids || []).forEach(gid => {
+          const g = GENRES[gid];
+          if (g) {
+            p.genres[gid] = (p.genres[gid] || 0) + w;
+            p.intensity += g.intensity * w;
+            p.romance += g.romance * w;
+            p.comfort += g.comfort * w;
+            p.cerebral += g.cerebral * w;
+          }
+        });
+      });
+      if (p.totalW > 0) {
+        p.intensity /= p.totalW; p.romance /= p.totalW; p.comfort /= p.totalW; p.cerebral /= p.totalW;
+        Object.keys(p.genres).forEach(g => p.genres[g] /= p.totalW);
+      }
+      return p;
+    };
+
+    const prof1 = buildProfile(p1Picks, fairnessP1);
+    const prof2 = buildProfile(p2Picks, fairnessP2);
+
+    const center = {
+      intensity: (prof1.intensity + prof2.intensity) / 2,
+      romance: (prof1.romance + prof2.romance) / 2,
+      comfort: (prof1.comfort + prof2.comfort) / 2,
+      cerebral: (prof1.cerebral + prof2.cerebral) / 2,
+      genres: {}
+    };
+    const allG = new Set([...Object.keys(prof1.genres), ...Object.keys(prof2.genres)]);
+    allG.forEach(g => center.genres[g] = ((prof1.genres[g]||0) + (prof2.genres[g]||0)) / 2);
+
+    try {
+      const extras = await Promise.all([
+        fetchTMDB('/movie/popular?language=en-US&page=2'),
+        fetchTMDB('/movie/popular?language=en-US&page=3'),
+        fetchTMDB('/movie/top_rated?language=en-US&page=2')
+      ]);
+      extras.filter(Boolean).flatMap(d => d.results || []).forEach(m => {
+        const norm = normalizeMovie(m);
+        setCache(prev => ({...prev, [norm.id]: norm}));
+      });
+    } catch(e) {}
+
+    await new Promise(r => setTimeout(r, 100));
+
+    const getMovieProfile = (m) => {
+      let int = 0, rom = 0, com = 0, cer = 0, count = 0;
+      (m.genre_ids || []).forEach(gid => {
+        const g = GENRES[gid];
+        if (g) { int += g.intensity; rom += g.romance; com += g.comfort; cer += g.cerebral; count++; }
+      });
+      if (count === 0) return { intensity: 0.5, romance: 0.5, comfort: 0.5, cerebral: 0.5 };
+      return { intensity: int/count, romance: rom/count, comfort: com/count, cerebral: cer/count };
+    };
+
+    const scored = Object.values(cache).map(movie => {
+      let score = 0;
+      const p1Pick = p1Picks[movie.id], p2Pick = p2Picks[movie.id];
+      
+      if (p1Pick && p2Pick) {
+        const combined = (p1Pick.expr * fairnessP1) + (p2Pick.expr * fairnessP2);
+        score += combined * combined * 2.5;
+      }
+
+      (movie.genre_ids || []).forEach(gid => {
+        const g = GENRES[gid];
+        if (g) {
+          score += (center.genres[gid] || 0) * 25;
+          score += (1 - Math.abs(g.intensity - center.intensity)) * 4;
+          score += (1 - Math.abs(g.romance - center.romance)) * 4;
+          score += (1 - Math.abs(g.comfort - center.comfort)) * 4;
+          score += (1 - Math.abs(g.cerebral - center.cerebral)) * 4;
+        }
+      });
+
+      if (movie.rating >= 7) score += (movie.rating - 6) * 2;
+
+      if (p1Pick && !p2Pick && lastPicker === 'p1') {
+        const mp = getMovieProfile(movie);
+        const dist = Math.abs(mp.intensity - prof2.intensity) + Math.abs(mp.romance - prof2.romance) + Math.abs(mp.comfort - prof2.comfort) + Math.abs(mp.cerebral - prof2.cerebral);
+        score -= dist * p1Pick.expr * 1.5;
+      }
+      if (p2Pick && !p1Pick && lastPicker === 'p2') {
+        const mp = getMovieProfile(movie);
+        const dist = Math.abs(mp.intensity - prof1.intensity) + Math.abs(mp.romance - prof1.romance) + Math.abs(mp.comfort - prof1.comfort) + Math.abs(mp.cerebral - prof1.cerebral);
+        score -= dist * p2Pick.expr * 1.5;
+      }
+
+      return { movie, score };
+    });
+
+    scored.sort((a, b) => b.score - a.score);
+    const top5 = scored.slice(0, 5).map((s) => ({...s, matchScore: Math.min(98, Math.max(68, Math.round(52 + s.score * 0.9)))}));
+
+    setTimeout(() => { setResult(top5); setPhase('result'); }, 1800);
+  };
+
+  const reset = () => {
+    setPhase('q1'); setP1Picks({}); setP2Picks({}); setLastPicker(null);
+    setLastMovieRatingP1(null); setLastMovieRatingP2(null); setLastMovie(null); setResult(null);
+  };
+
+  return (
+    <div style={{minHeight:'100vh',padding:'16px',maxWidth:'1100px',margin:'0 auto'}}>
+      <header style={{textAlign:'center',padding:'24px 16px 16px'}}>
+        <h1 className="playfair" style={{fontSize:'clamp(28px,6vw,42px)',fontWeight:'700',marginBottom:'6px',background:'linear-gradient(135deg,var(--p1),var(--gold),var(--p2))',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent'}}>
+          MovieNight
+        </h1>
+        <p style={{fontSize:'14px',color:'var(--muted)'}}>Find the movies you'll love together</p>
+      </header>
+
+      {phase === 'q1' && (
+        <div style={{maxWidth:'480px',margin:'30px auto',padding:'0 16px',animation:'fadeIn 0.4s ease-out'}}>
+          <div style={{background:'var(--card)',borderRadius:'20px',padding:'32px 24px',textAlign:'center'}}>
+            <div style={{fontSize:'40px',marginBottom:'16px'}}>🎬</div>
+            <h2 style={{fontSize:'20px',fontWeight:'600',marginBottom:'24px'}}>Who picked the movie last time?</h2>
+            <div style={{display:'flex',flexDirection:'column',gap:'12px',marginBottom:'24px'}}>
+              <button className={`btn-choice ${lastPicker === 'p1' ? 'active' : ''}`} onClick={() => setLastPicker('p1')}
+                style={lastPicker === 'p1' ? {borderColor:'var(--p1)',background:'rgba(255,107,107,0.15)',color:'var(--p1)'} : {}}>👤 Partner 1</button>
+              <button className={`btn-choice ${lastPicker === 'p2' ? 'active' : ''}`} onClick={() => setLastPicker('p2')}
+                style={lastPicker === 'p2' ? {borderColor:'var(--p2)',background:'rgba(78,205,196,0.15)',color:'var(--p2)'} : {}}>👤 Partner 2</button>
+              <button className={`btn-choice ${lastPicker === 'mutual' ? 'active' : ''}`} onClick={() => setLastPicker('mutual')}>🤝 We decided together</button>
+            </div>
+            <div style={{display:'flex',gap:'12px'}}>
+              <button onClick={() => { setLastPicker('mutual'); setPhase('picking'); }} style={{flex:1,padding:'14px',borderRadius:'12px',border:'2px solid var(--elevated)',background:'transparent',color:'var(--muted)',fontSize:'14px',fontWeight:'600',cursor:'pointer'}}>Skip</button>
+              <button onClick={() => setPhase('q2')} disabled={!lastPicker} style={{flex:2,padding:'14px',borderRadius:'12px',border:'none',background: lastPicker ? 'var(--gold)' : 'var(--elevated)',color: lastPicker ? 'var(--bg)' : 'var(--dim)',fontSize:'14px',fontWeight:'700',cursor: lastPicker ? 'pointer' : 'not-allowed'}}>Next →</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {phase === 'q2' && (
+        <div style={{maxWidth:'480px',margin:'30px auto',padding:'0 16px',animation:'fadeIn 0.4s ease-out'}}>
+          <div style={{background:'var(--card)',borderRadius:'20px',padding:'32px 24px'}}>
+            <div style={{textAlign:'center',marginBottom:'28px'}}>
+              <div style={{fontSize:'40px',marginBottom:'12px'}}>🍿</div>
+              <h2 style={{fontSize:'20px',fontWeight:'600'}}>How much did you each like it?</h2>
+            </div>
+            <div style={{marginBottom:'28px'}}>
+              <p style={{fontSize:'14px',color:'var(--p1)',fontWeight:'600',marginBottom:'12px',textAlign:'center'}}>Partner 1</p>
+              <RatingButtons value={lastMovieRatingP1} onChange={setLastMovieRatingP1} color="var(--p1)" />
+            </div>
+            <div style={{marginBottom:'28px'}}>
+              <p style={{fontSize:'14px',color:'var(--p2)',fontWeight:'600',marginBottom:'12px',textAlign:'center'}}>Partner 2</p>
+              <RatingButtons value={lastMovieRatingP2} onChange={setLastMovieRatingP2} color="var(--p2)" />
+            </div>
+            <div style={{display:'flex',gap:'12px'}}>
+              <button onClick={() => setPhase('q1')} style={{flex:1,padding:'14px',borderRadius:'12px',border:'2px solid var(--elevated)',background:'transparent',color:'var(--muted)',fontSize:'14px',fontWeight:'600',cursor:'pointer'}}>← Back</button>
+              <button onClick={() => setPhase('q3')} disabled={!lastMovieRatingP1 || !lastMovieRatingP2} style={{flex:2,padding:'14px',borderRadius:'12px',border:'none',background: (lastMovieRatingP1 && lastMovieRatingP2) ? 'var(--gold)' : 'var(--elevated)',color: (lastMovieRatingP1 && lastMovieRatingP2) ? 'var(--bg)' : 'var(--dim)',fontSize:'14px',fontWeight:'700',cursor: (lastMovieRatingP1 && lastMovieRatingP2) ? 'pointer' : 'not-allowed'}}>Next →</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {phase === 'q3' && (
+        <div style={{maxWidth:'480px',margin:'30px auto',padding:'0 16px',animation:'fadeIn 0.4s ease-out'}}>
+          <div style={{background:'var(--card)',borderRadius:'20px',padding:'32px 24px'}}>
+            <div style={{textAlign:'center',marginBottom:'24px'}}>
+              <div style={{fontSize:'40px',marginBottom:'12px'}}>🎥</div>
+              <h2 style={{fontSize:'20px',fontWeight:'600'}}>What was the movie?</h2>
+              <p style={{fontSize:'13px',color:'var(--muted)',marginTop:'8px'}}>Optional, but helps us learn your tastes</p>
+            </div>
+            <div style={{marginBottom:'24px'}}>
+              <LastMovieSearch value={lastMovie} onChange={setLastMovie} movies={movies} onSearch={search} />
+            </div>
+            <div style={{display:'flex',gap:'12px'}}>
+              <button onClick={() => setPhase('q2')} style={{flex:1,padding:'14px',borderRadius:'12px',border:'2px solid var(--elevated)',background:'transparent',color:'var(--muted)',fontSize:'14px',fontWeight:'600',cursor:'pointer'}}>← Back</button>
+              <button onClick={() => setPhase('picking')} style={{flex:2,padding:'14px',borderRadius:'12px',border:'none',background:'var(--gold)',color:'var(--bg)',fontSize:'14px',fontWeight:'700',cursor:'pointer'}}>{lastMovie ? 'Start Picking →' : 'Skip & Start →'}</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {phase === 'picking' && (
+        <>
+          <p style={{textAlign:'center',fontSize:'14px',color:'var(--muted)',marginBottom:'20px'}}>Each pick 2-3 movies and rate your excitement</p>
+          <div style={{display:'flex',gap:'20px',flexWrap:'wrap',marginBottom:'24px'}}>
+            <PartnerColumn name="Partner 1" color="var(--p1)" picks={Object.values(p1Picks)}
+              onAddPick={(m) => addPick(m, 1)} onRemovePick={(id) => removePick(id, 1)}
+              onExpressionChange={(id, val) => setExpr(id, val, 1)} allPicks={{p1: p1Picks, p2: p2Picks}}
+              movies={movies} onSearch={search} loading={loading} />
+            <div style={{display:'flex',alignItems:'center',justifyContent:'center',padding:'16px 0'}}>
+              <div style={{width:'50px',height:'50px',borderRadius:'50%',background:'var(--elevated)',border:'2px solid var(--gold)',display:'flex',alignItems:'center',justifyContent:'center',fontWeight:'700',fontSize:'14px',color:'var(--gold)',boxShadow:'0 4px 15px rgba(247,215,148,0.25)'}}>VS</div>
+            </div>
+            <PartnerColumn name="Partner 2" color="var(--p2)" picks={Object.values(p2Picks)}
+              onAddPick={(m) => addPick(m, 2)} onRemovePick={(id) => removePick(id, 2)}
+              onExpressionChange={(id, val) => setExpr(id, val, 2)} allPicks={{p1: p1Picks, p2: p2Picks}}
+              movies={movies} onSearch={search} loading={loading} />
+          </div>
+          <div style={{textAlign:'center'}}>
+            <button onClick={findMatch} disabled={!canFindMatch} style={{
+              padding:'16px 40px',borderRadius:'50px',border:'none',fontSize:'16px',fontWeight:'700',
+              cursor: canFindMatch ? 'pointer' : 'not-allowed',
+              background: canFindMatch ? 'linear-gradient(135deg,var(--p1),var(--gold),var(--p2))' : 'var(--elevated)',
+              color: canFindMatch ? 'white' : 'var(--dim)',
+              boxShadow: canFindMatch ? '0 8px 35px rgba(247,215,148,0.35)' : 'none',
+              animation: canFindMatch ? 'glow 2s ease-in-out infinite' : 'none'
+            }}>{canFindMatch ? '✨ Find Our Movie ✨' : `Need ${Math.max(0, 2 - p1Count) + Math.max(0, 2 - p2Count)} more picks`}</button>
+          </div>
+        </>
+      )}
+
+      {phase === 'calculating' && (
+        <div style={{textAlign:'center',padding:'60px 20px'}}>
+          <div style={{width:'80px',height:'80px',margin:'0 auto 24px',position:'relative'}}>
+            <div style={{position:'absolute',inset:0,borderRadius:'50%',background:'conic-gradient(var(--p1),var(--gold),var(--p2),var(--p1))',animation:'spin 1.5s linear infinite'}}/>
+            <div style={{position:'absolute',inset:'8px',borderRadius:'50%',background:'var(--bg)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'32px'}}>🔮</div>
+          </div>
+          <h2 className="playfair" style={{fontSize:'24px',marginBottom:'12px',background:'linear-gradient(135deg,var(--p1),var(--p2))',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent'}}>Finding your match...</h2>
+        </div>
+      )}
+
+      {phase === 'result' && result && (
+        <div style={{animation:'reveal 0.5s ease-out'}}>
+          <div style={{textAlign:'center',marginBottom:'24px'}}>
+            <div style={{fontSize:'40px',marginBottom:'8px'}}>🎉</div>
+            <h2 className="playfair" style={{fontSize:'26px',fontWeight:'700',marginBottom:'6px'}}>Tonight's Recommendation</h2>
+          </div>
+
+          <div style={{display:'flex',flexDirection:'column',gap:'16px',maxWidth:'650px',margin:'0 auto'}}>
+            {result.map((r, i) => <ResultMovieCard key={r.movie.id} movie={r.movie} score={r.matchScore} rank={i + 1} isWinner={i === 0} />)}
+          </div>
+
+          <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(240px,1fr))',gap:'16px',marginTop:'32px',maxWidth:'650px',margin:'32px auto 0'}}>
+            {[['Partner 1', p1Picks, 'var(--p1)', '❤️'], ['Partner 2', p2Picks, 'var(--p2)', '💚']].map(([name, picks, color, emoji]) => (
+              <div key={name} style={{background:'var(--card)',borderRadius:'14px',padding:'16px',borderLeft:`3px solid ${color}`}}>
+                <h4 style={{color,fontSize:'13px',fontWeight:'600',marginBottom:'10px'}}>{name}'s Picks</h4>
+                <div style={{display:'flex',flexDirection:'column',gap:'6px'}}>
+                  {Object.values(picks).map(({movie, expr}) => (
+                    <div key={movie.id} style={{display:'flex',alignItems:'center',gap:'6px',fontSize:'12px'}}>
+                      <span style={{flex:1,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{movie.title}</span>
+                      <span style={{color,flexShrink:0}}>{emoji.repeat(Math.min(expr, 3))}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Funny Quotes Section */}
+          <div style={{maxWidth:'650px',margin:'40px auto 0'}}>
+            <div style={{background:'linear-gradient(135deg, var(--card), var(--elevated))',borderRadius:'16px',padding:'24px',textAlign:'center'}}>
+              <div style={{display:'flex',flexDirection:'column',gap:'16px'}}>
+                {randomQuotes.map((quote, i) => (
+                  <p key={i} style={{
+                    fontSize:'14px',color:'var(--muted)',fontStyle:'italic',lineHeight:'1.6',
+                    animation:`fadeIn 0.5s ease-out ${0.3 + i * 0.2}s both`
+                  }}>"{quote}"</p>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <div style={{textAlign:'center',marginTop:'32px'}}>
+            <button onClick={reset} style={{padding:'12px 32px',borderRadius:'50px',border:'2px solid var(--gold)',background:'transparent',color:'var(--gold)',fontSize:'14px',fontWeight:'600',cursor:'pointer'}}>Start Over 🎬</button>
+          </div>
+        </div>
+      )}
+
+      <footer style={{textAlign:'center',padding:'32px 16px',color:'var(--dim)',fontSize:'11px'}}>
+        <p>Made with 💕 for movie nights</p>
+      </footer>
+    </div>
+  );
+};
+
+ReactDOM.render(<App />, document.getElementById('root'));
+</script>
+</body>
+</html>
