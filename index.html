@@ -64,6 +64,24 @@
       transition: all 0.2s; display: inline-flex; align-items: center; gap: 8px;
     }
     .share-btn:hover { transform: scale(1.05); box-shadow: 0 10px 30px rgba(168,85,247,0.4); }
+    .watch-btn {
+      padding: 12px 24px; border-radius: 50px; border: 2px solid var(--gold);
+      background: transparent; color: var(--gold); font-weight: 700; cursor: pointer; font-size: 14px;
+      transition: all 0.2s; display: inline-flex; align-items: center; gap: 8px;
+      text-decoration: none;
+    }
+    .watch-btn:hover { background: var(--gold); color: var(--bg); }
+    /* Mobile responsive */
+    @media (max-width: 640px) {
+      .header-btn { position: static !important; margin-top: 12px; }
+      .result-card-inner { flex-direction: column !important; text-align: center; }
+      .result-card-inner > div:first-child { margin: 0 auto; }
+      .result-poster { width: 140px !important; }
+      .result-info { text-align: center; }
+      .picks-grid { grid-template-columns: 1fr !important; }
+      .vs-circle { display: none; }
+      .partner-columns { flex-direction: column !important; gap: 16px !important; }
+    }
   </style>
 </head>
 <body>
@@ -167,46 +185,109 @@ const normalizeMovie = (m) => ({
 });
 
 const ExpressionSlider = ({ value, onChange, color }) => {
-  const labels = ['if I have to...', 'could watch it', 'would enjoy this', 'really want this', '🔥 TONIGHT\'S PICK 🔥'];
+  const labels = [
+    'rather not',
+    'meh either way',
+    'could watch it',
+    'would enjoy this',
+    'really want this',
+    '🔥 TONIGHT\'S PICK 🔥'
+  ];
+  // Map -1 to 4 range to 0-5 index
+  const labelIndex = value + 1;
+  const isNegative = value < 0;
+  const isNeutral = value === 0;
+  const isMax = value === 4;
+  const displayColor = isNegative ? 'var(--p1)' : isMax ? 'var(--gold)' : color;
+  
+  // Calculate percentage position (0-100) for the thumb
+  // -1 = 0%, 0 = 20%, 4 = 100%
+  const percent = ((value + 1) / 5) * 100;
+  
+  // The "zero point" is at 20% (1/5)
+  const zeroPoint = 20;
+  
+  let gradient;
+  if (value < 0) {
+    // Negative: show red from zero point back to current position
+    gradient = `linear-gradient(to right, 
+      #2a2a35 0%, 
+      #2a2a35 ${percent}%, 
+      var(--p1) ${percent}%, 
+      var(--p1) ${zeroPoint}%, 
+      #2a2a35 ${zeroPoint}%, 
+      #2a2a35 100%)`;
+  } else if (value > 0) {
+    // Positive: show color from zero point to current position
+    gradient = `linear-gradient(to right, 
+      #2a2a35 0%, 
+      #2a2a35 ${zeroPoint}%, 
+      ${isMax ? 'var(--gold)' : color} ${zeroPoint}%, 
+      ${isMax ? 'var(--gold)' : color} ${percent}%, 
+      #2a2a35 ${percent}%, 
+      #2a2a35 100%)`;
+  } else {
+    // Neutral: all gray
+    gradient = '#2a2a35';
+  }
+  
   return (
     <div style={{marginTop:'10px'}}>
-      <input type="range" min="1" max="5" value={value}
+      <input type="range" min="-1" max="4" value={value}
         onChange={e => onChange(+e.target.value)}
-        style={{ background: `linear-gradient(to right, ${color} ${(value-1)*25}%, #2a2a35 ${(value-1)*25}%)`, color }}
+        style={{ 
+          background: gradient,
+          color: displayColor
+        }}
       />
-      <div style={{textAlign:'center',fontSize: value === 5 ? '10px' : '11px',color: value === 5 ? 'var(--gold)' : color,fontWeight:'700',marginTop:'4px',textTransform:'uppercase',letterSpacing:'0.5px',animation: value === 5 ? 'pulse 1s ease-in-out infinite' : 'none'}}>
-        {labels[value-1]}
+      <div style={{
+        textAlign:'center',
+        fontSize: value === 4 ? '9px' : '10px',
+        color: displayColor,
+        fontWeight:'700',
+        marginTop:'4px',
+        textTransform:'uppercase',
+        letterSpacing:'0.5px',
+        animation: value === 4 ? 'pulse 1s ease-in-out infinite' : 'none'
+      }}>
+        {labels[labelIndex]}
       </div>
     </div>
   );
 };
 
-const PickCard = ({ movie, expression, onExpressionChange, onRemove, color, index }) => (
-  <div style={{
-    background:'var(--card)', borderRadius:'16px', padding:'14px',
-    border:`2px solid ${color}`, position:'relative',
-    animation:`slideIn 0.3s ease-out ${index * 0.1}s both`
-  }}>
-    <button onClick={onRemove} style={{
-      position:'absolute', top:'-10px', right:'-10px', width:'26px', height:'26px',
-      borderRadius:'50%', border:'none', background:'#444', color:'white',
-      cursor:'pointer', fontSize:'14px', fontWeight:'bold',
-      display:'flex', alignItems:'center', justifyContent:'center'
-    }}>×</button>
-    <div style={{display:'flex',gap:'12px',alignItems:'center'}}>
-      {movie.poster ? (
-        <img src={movie.posterSm || movie.poster} alt="" style={{width:'50px',height:'75px',objectFit:'cover',borderRadius:'10px',flexShrink:0}} onError={(e) => e.target.style.display = 'none'} />
-      ) : (
-        <div style={{width:'50px',height:'75px',background:'var(--elevated)',borderRadius:'10px',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'24px',flexShrink:0}}>🎬</div>
-      )}
-      <div style={{flex:1,minWidth:0}}>
-        <h4 style={{fontSize:'14px',fontWeight:'600',marginBottom:'2px',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{movie.title}</h4>
-        <p style={{fontSize:'11px',color:'var(--dim)'}}>{movie.year}</p>
-        <ExpressionSlider value={expression} onChange={onExpressionChange} color={color} />
+const PickCard = ({ movie, expression, onExpressionChange, onRemove, color, index }) => {
+  const isNegative = expression < 0;
+  const borderColor = isNegative ? 'var(--p1)' : color;
+  
+  return (
+    <div style={{
+      background:'var(--card)', borderRadius:'16px', padding:'14px',
+      border:`2px solid ${borderColor}`, position:'relative',
+      animation:`slideIn 0.3s ease-out ${index * 0.1}s both`,
+      opacity: isNegative ? 0.85 : 1
+    }}>
+      <button onClick={onRemove} style={{
+        position:'absolute', top:'-10px', right:'-10px', width:'26px', height:'26px',
+        borderRadius:'50%', border:'none', background:'#444', color:'white',
+        cursor:'pointer', fontSize:'14px', fontWeight:'bold',
+        display:'flex', alignItems:'center', justifyContent:'center'
+      }}>×</button>
+      <div style={{display:'flex',gap:'12px',alignItems:'center'}}>
+        {movie.poster ? (
+          <img src={movie.posterSm || movie.poster} alt="" style={{width:'50px',height:'75px',objectFit:'cover',borderRadius:'10px',flexShrink:0,opacity: isNegative ? 0.7 : 1}} onError={(e) => e.target.style.display = 'none'} />
+        ) : (
+          <div style={{width:'50px',height:'75px',background:'var(--elevated)',borderRadius:'10px',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'24px',flexShrink:0}}>🎬</div>
+        )}
+        <div style={{flex:1,minWidth:0}}>
+          <h4 style={{fontSize:'14px',fontWeight:'600',marginBottom:'2px',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',color: isNegative ? 'var(--muted)' : 'inherit'}}>{movie.title}</h4>
+          <p style={{fontSize:'11px',color:'var(--dim)'}}>{movie.year}</p>
+          <ExpressionSlider value={expression} onChange={onExpressionChange} color={color} />
+        </div>
       </div>
     </div>
-  </div>
-);
+  );
+};
 
 const MovieResult = ({ movie, onSelect, alreadyPicked }) => {
   const [hover, setHover] = useState(false);
@@ -310,41 +391,84 @@ const PartnerColumn = ({ name, emoji, color, picks, onAddPick, onRemovePick, onE
   );
 };
 
-const ResultMovieCard = ({ movie, score, rank, isWinner }) => (
+const ResultMovieCard = ({ movie, score, rank, isWinner, isDiscovery }) => (
   <div style={{
     background: isWinner ? 'linear-gradient(135deg,var(--card),var(--elevated))' : 'var(--card)',
-    borderRadius: isWinner ? '24px' : '16px', padding: isWinner ? '24px' : '16px',
+    borderRadius: isWinner ? '24px' : '16px', padding: isWinner ? '20px' : '14px',
     border: isWinner ? '3px solid var(--gold)' : 'none',
     boxShadow: isWinner ? '0 0 60px rgba(255,217,61,0.2)' : '0 4px 20px rgba(0,0,0,0.2)',
     animation: `reveal 0.5s ease-out ${rank * 0.15}s both`
   }}>
-    <div style={{display:'flex',gap:'20px',alignItems:'flex-start'}}>
-      {!isWinner && (
-        <div style={{width:'32px',height:'32px',borderRadius:'50%',flexShrink:0,
-          background: rank === 1 ? 'linear-gradient(135deg,#FFD700,#FFA500)' : rank === 2 ? 'linear-gradient(135deg,#C0C0C0,#888)' : 'linear-gradient(135deg,#CD7F32,#8B4513)',
-          display:'flex',alignItems:'center',justifyContent:'center',fontWeight:'700',color:'white',fontSize:'14px'}}>{rank}</div>
-      )}
-      <div style={{borderRadius: isWinner ? '16px' : '12px',overflow:'hidden',flexShrink:0,boxShadow:'0 8px 30px rgba(0,0,0,0.4)'}}>
-        {movie.poster ? (
-          <img src={movie.poster} alt={movie.title} style={{width: isWinner ? '180px' : '80px', display:'block'}} onError={(e) => e.target.style.display = 'none'} />
-        ) : (
-          <div style={{width: isWinner ? '180px' : '80px', height: isWinner ? '270px' : '120px', background:'var(--elevated)',display:'flex',alignItems:'center',justifyContent:'center',fontSize: isWinner ? '48px' : '24px'}}>🎬</div>
+    {isWinner ? (
+      <div style={{display:'flex',flexDirection:'column',alignItems:'center',textAlign:'center'}}>
+        <div style={{fontSize:'12px',color:'var(--gold)',fontWeight:'700',marginBottom:'12px',textTransform:'uppercase',letterSpacing:'2px'}}>🎬 THE VERDICT</div>
+        
+        {/* Discovery message when neither person picked this */}
+        {isDiscovery && (
+          <div style={{
+            background:'linear-gradient(135deg, rgba(168,85,247,0.15), rgba(255,107,107,0.15))',
+            borderRadius:'12px',padding:'12px 16px',marginBottom:'16px',maxWidth:'280px'
+          }}>
+            <p style={{fontSize:'13px',color:'var(--purple)',fontStyle:'italic',lineHeight:'1.5'}}>
+              🔮 Neither of you picked this one... but the algorithm thinks you'll both love it. Trust the process.
+            </p>
+          </div>
         )}
-      </div>
-      <div style={{flex:1}}>
-        {isWinner && <div style={{fontSize:'12px',color:'var(--gold)',fontWeight:'700',marginBottom:'8px',textTransform:'uppercase',letterSpacing:'2px'}}>🎬 THE VERDICT</div>}
-        <h3 className="space" style={{fontSize: isWinner ? '26px' : '16px', fontWeight:'700',marginBottom:'8px',lineHeight:1.2}}>{movie.title}</h3>
-        <div style={{display:'flex',gap:'8px',marginBottom: isWinner ? '12px' : '8px',flexWrap:'wrap'}}>
-          {movie.rating > 0 && <span style={{padding:'4px 10px',borderRadius:'20px',background:'var(--bg)',fontSize:'12px',fontWeight:'600'}}>★ {movie.rating.toFixed(1)}</span>}
-          <span style={{padding:'4px 10px',borderRadius:'20px',background:'var(--bg)',fontSize:'12px'}}>{movie.year}</span>
+        
+        <div style={{borderRadius:'16px',overflow:'hidden',marginBottom:'16px',boxShadow:'0 8px 30px rgba(0,0,0,0.4)',maxWidth:'180px'}}>
+          {movie.poster ? (
+            <img src={movie.poster} alt={movie.title} style={{width:'100%',display:'block'}} onError={(e) => e.target.style.display = 'none'} />
+          ) : (
+            <div style={{width:'180px',height:'270px',background:'var(--elevated)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'48px'}}>🎬</div>
+          )}
         </div>
-        <div style={{display:'inline-block',padding: isWinner ? '12px 20px' : '8px 14px',borderRadius:'14px',background:'linear-gradient(135deg,rgba(255,107,107,0.15),rgba(78,205,196,0.15))'}}>
+        <h3 className="space" style={{fontSize:'22px',fontWeight:'700',marginBottom:'10px',lineHeight:1.2}}>{movie.title}</h3>
+        <div style={{display:'flex',gap:'8px',marginBottom:'12px',flexWrap:'wrap',justifyContent:'center'}}>
+          {movie.rating > 0 && <span style={{padding:'4px 12px',borderRadius:'20px',background:'var(--bg)',fontSize:'12px',fontWeight:'600'}}>★ {movie.rating.toFixed(1)}</span>}
+          <span style={{padding:'4px 12px',borderRadius:'20px',background:'var(--bg)',fontSize:'12px'}}>{movie.year}</span>
+        </div>
+        <div style={{padding:'12px 20px',borderRadius:'14px',background:'linear-gradient(135deg,rgba(255,107,107,0.15),rgba(78,205,196,0.15))',marginBottom:'14px'}}>
           <span style={{fontSize:'12px',color:'var(--muted)',marginRight:'8px'}}>Match:</span>
-          <span className="space" style={{fontSize: isWinner ? '28px' : '18px', fontWeight:'700',color:'var(--gold)'}}>{score}%</span>
+          <span className="space" style={{fontSize:'28px',fontWeight:'700',color:'var(--gold)'}}>{score}%</span>
         </div>
-        {isWinner && movie.overview && <p style={{fontSize:'13px',color:'var(--muted)',marginTop:'14px',lineHeight:'1.6'}}>{movie.overview.slice(0,140)}...</p>}
+        {movie.overview && <p style={{fontSize:'12px',color:'var(--muted)',lineHeight:'1.5',marginBottom:'16px'}}>{movie.overview.slice(0,140)}...</p>}
+        <div style={{display:'flex',gap:'10px',flexWrap:'wrap',justifyContent:'center'}}>
+          <a href={`https://www.justwatch.com/us/search?q=${encodeURIComponent(movie.title)}`} target="_blank" rel="noopener noreferrer" style={{
+            padding:'12px 20px',borderRadius:'14px',background:'var(--gold)',color:'var(--bg)',
+            fontSize:'13px',fontWeight:'700',textDecoration:'none',display:'inline-flex',alignItems:'center',gap:'6px'
+          }}>
+            📺 Where to Watch
+          </a>
+          <a href={`https://www.themoviedb.org/movie/${movie.id}`} target="_blank" rel="noopener noreferrer" style={{
+            padding:'12px 20px',borderRadius:'14px',border:'2px solid var(--elevated)',background:'transparent',color:'var(--muted)',
+            fontSize:'13px',fontWeight:'600',textDecoration:'none',display:'inline-flex',alignItems:'center',gap:'6px'
+          }}>
+            ℹ️ More Info
+          </a>
+        </div>
       </div>
-    </div>
+    ) : (
+      <div style={{display:'flex',gap:'12px',alignItems:'center'}}>
+        <div style={{width:'28px',height:'28px',borderRadius:'50%',flexShrink:0,
+          background: rank === 2 ? 'linear-gradient(135deg,#C0C0C0,#888)' : rank === 3 ? 'linear-gradient(135deg,#CD7F32,#8B4513)' : 'var(--elevated)',
+          display:'flex',alignItems:'center',justifyContent:'center',fontWeight:'700',color:'white',fontSize:'12px'}}>{rank}</div>
+        <div style={{borderRadius:'10px',overflow:'hidden',flexShrink:0,width:'50px'}}>
+          {movie.poster ? (
+            <img src={movie.poster} alt={movie.title} style={{width:'50px',display:'block'}} onError={(e) => e.target.style.display = 'none'} />
+          ) : (
+            <div style={{width:'50px',height:'75px',background:'var(--elevated)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'18px'}}>🎬</div>
+          )}
+        </div>
+        <div style={{flex:1,minWidth:0}}>
+          <h3 className="space" style={{fontSize:'13px',fontWeight:'600',marginBottom:'4px',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{movie.title}</h3>
+          <div style={{display:'flex',gap:'6px',alignItems:'center',flexWrap:'wrap'}}>
+            {movie.rating > 0 && <span style={{fontSize:'11px',color:'var(--dim)'}}>★ {movie.rating.toFixed(1)}</span>}
+            <span style={{fontSize:'11px',color:'var(--dim)'}}>{movie.year}</span>
+            <span style={{fontSize:'14px',fontWeight:'700',color:'var(--gold)',marginLeft:'auto'}}>{score}%</span>
+          </div>
+        </div>
+      </div>
+    )}
   </div>
 );
 
@@ -500,7 +624,7 @@ const App = () => {
 
   const addPick = (movie, partner) => {
     const setPicks = partner === 1 ? setP1Picks : setP2Picks;
-    setPicks(prev => Object.keys(prev).length >= 3 ? prev : {...prev, [movie.id]: {movie, expr: 3}});
+    setPicks(prev => Object.keys(prev).length >= 3 ? prev : {...prev, [movie.id]: {movie, expr: 1}});
     setCache(prev => ({...prev, [movie.id]: movie}));
   };
 
@@ -548,16 +672,29 @@ const App = () => {
     const buildProfile = (picks, multiplier) => {
       const p = { genres: {}, intensity: 0, romance: 0, comfort: 0, cerebral: 0, totalW: 0 };
       Object.values(picks).forEach(({movie, expr}) => {
-        const w = (expr * expr) * multiplier;
-        p.totalW += w;
-        (movie.genre_ids || []).forEach(gid => {
-          const g = GENRES[gid];
-          if (g) {
-            p.genres[gid] = (p.genres[gid] || 0) + w;
-            p.intensity += g.intensity * w; p.romance += g.romance * w;
-            p.comfort += g.comfort * w; p.cerebral += g.cerebral * w;
-          }
-        });
+        // Only include positive preferences in profile building
+        if (expr > 0) {
+          const w = (expr * expr) * multiplier;
+          p.totalW += w;
+          (movie.genre_ids || []).forEach(gid => {
+            const g = GENRES[gid];
+            if (g) {
+              p.genres[gid] = (p.genres[gid] || 0) + w;
+              p.intensity += g.intensity * w; p.romance += g.romance * w;
+              p.comfort += g.comfort * w; p.cerebral += g.cerebral * w;
+            }
+          });
+        }
+        // Negative preferences reduce genre weights
+        if (expr < 0) {
+          const w = Math.abs(expr * expr) * multiplier * 0.5;
+          (movie.genre_ids || []).forEach(gid => {
+            const g = GENRES[gid];
+            if (g) {
+              p.genres[gid] = (p.genres[gid] || 0) - w;
+            }
+          });
+        }
       });
       if (p.totalW > 0) {
         p.intensity /= p.totalW; p.romance /= p.totalW; p.comfort /= p.totalW; p.cerebral /= p.totalW;
@@ -576,12 +713,41 @@ const App = () => {
     const allG = new Set([...Object.keys(prof1.genres), ...Object.keys(prof2.genres)]);
     allG.forEach(g => center.genres[g] = ((prof1.genres[g]||0) + (prof2.genres[g]||0)) / 2);
 
+    // Find top genres from both profiles for better discovery
+    const topGenres = Object.entries(center.genres)
+      .filter(([_, w]) => w > 0)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 3)
+      .map(([g]) => g);
+
     try {
-      const extras = await Promise.all([
+      // Fetch many more movies for better recommendations
+      const fetchPromises = [
         fetchTMDB('/movie/popular?language=en-US&page=2'),
         fetchTMDB('/movie/popular?language=en-US&page=3'),
-        fetchTMDB('/movie/top_rated?language=en-US&page=2')
-      ]);
+        fetchTMDB('/movie/popular?language=en-US&page=4'),
+        fetchTMDB('/movie/top_rated?language=en-US&page=2'),
+        fetchTMDB('/movie/top_rated?language=en-US&page=3'),
+        fetchTMDB('/movie/now_playing?language=en-US&page=2'),
+        fetchTMDB('/trending/movie/week?language=en-US'),
+      ];
+      
+      // Also fetch movies by the top genres they both like
+      topGenres.forEach(gid => {
+        fetchPromises.push(fetchTMDB(`/discover/movie?with_genres=${gid}&sort_by=popularity.desc&language=en-US&page=1`));
+        fetchPromises.push(fetchTMDB(`/discover/movie?with_genres=${gid}&sort_by=vote_average.desc&vote_count.gte=500&language=en-US&page=1`));
+      });
+
+      // Fetch similar movies to their positive picks
+      const positivePicks = [...Object.values(p1Picks), ...Object.values(p2Picks)]
+        .filter(p => p.expr > 1)
+        .slice(0, 4);
+      positivePicks.forEach(p => {
+        fetchPromises.push(fetchTMDB(`/movie/${p.movie.id}/similar?language=en-US&page=1`));
+        fetchPromises.push(fetchTMDB(`/movie/${p.movie.id}/recommendations?language=en-US&page=1`));
+      });
+
+      const extras = await Promise.all(fetchPromises);
       extras.filter(Boolean).flatMap(d => d.results || []).forEach(m => {
         const norm = normalizeMovie(m);
         setCache(prev => ({...prev, [norm.id]: norm}));
@@ -603,47 +769,119 @@ const App = () => {
     const scored = Object.values(cache).map(movie => {
       let score = 0;
       const p1Pick = p1Picks[movie.id], p2Pick = p2Picks[movie.id];
+      const movieProfile = getMovieProfile(movie);
       
-      // MASSIVE bonus for mutual picks - agreement is heavily rewarded
-      if (p1Pick && p2Pick) {
+      // Negative picks reduce score but don't fully veto
+      if (p1Pick && p1Pick.expr < 0) {
+        score -= Math.abs(p1Pick.expr) * 15 * fairnessP1;
+      }
+      if (p2Pick && p2Pick.expr < 0) {
+        score -= Math.abs(p2Pick.expr) * 15 * fairnessP2;
+      }
+      
+      // HUGE bonus for mutual positive picks - the dream scenario
+      if (p1Pick && p2Pick && p1Pick.expr > 0 && p2Pick.expr > 0) {
         const combined = (p1Pick.expr * fairnessP1) + (p2Pick.expr * fairnessP2);
-        const agreementBonus = Math.min(p1Pick.expr, p2Pick.expr); // Reward similar enthusiasm
-        score += combined * combined * 3;
-        score += agreementBonus * agreementBonus * 5; // Extra bonus for matching excitement
+        const agreementBonus = Math.min(p1Pick.expr, p2Pick.expr);
+        score += combined * combined * 4;
+        score += agreementBonus * agreementBonus * 8;
+        // Extra bonus if both are really excited (3+)
+        if (p1Pick.expr >= 3 && p2Pick.expr >= 3) {
+          score += 50;
+        }
+      }
+      
+      // One person wants, other doesn't - conflict but not a dealbreaker
+      if (p1Pick && p2Pick) {
+        if ((p1Pick.expr > 0 && p2Pick.expr < 0) || (p2Pick.expr > 0 && p1Pick.expr < 0)) {
+          score -= 30; // Reduced from 75 - it's a soft no, not a veto
+        }
+      }
+      
+      // Single positive pick still counts, but less than mutual
+      if (p1Pick && p1Pick.expr > 0 && !p2Pick) {
+        score += p1Pick.expr * p1Pick.expr * 2 * fairnessP1;
+      }
+      if (p2Pick && p2Pick.expr > 0 && !p1Pick) {
+        score += p2Pick.expr * p2Pick.expr * 2 * fairnessP2;
       }
 
+      // Genre matching - how well does this movie fit their combined taste?
+      let genreMatchScore = 0;
+      let genreCount = 0;
       (movie.genre_ids || []).forEach(gid => {
         const g = GENRES[gid];
         if (g) {
-          score += (center.genres[gid] || 0) * 25;
-          score += (1 - Math.abs(g.intensity - center.intensity)) * 4;
-          score += (1 - Math.abs(g.romance - center.romance)) * 4;
-          score += (1 - Math.abs(g.comfort - center.comfort)) * 4;
-          score += (1 - Math.abs(g.cerebral - center.cerebral)) * 4;
+          genreCount++;
+          // Bonus for genres they both like
+          const genreWeight = center.genres[gid] || 0;
+          genreMatchScore += genreWeight * 30;
+          
+          // Semantic fit - how close is this movie's vibe to what they want?
+          genreMatchScore += (1 - Math.abs(g.intensity - center.intensity)) * 5;
+          genreMatchScore += (1 - Math.abs(g.romance - center.romance)) * 5;
+          genreMatchScore += (1 - Math.abs(g.comfort - center.comfort)) * 5;
+          genreMatchScore += (1 - Math.abs(g.cerebral - center.cerebral)) * 5;
         }
       });
-
-      if (movie.rating >= 7) score += (movie.rating - 6) * 2;
-
-      // Penalize one-sided extreme picks more heavily (refusing compromise)
-      if (p1Pick && !p2Pick && lastPicker === 'p1') {
-        const mp = getMovieProfile(movie);
-        const dist = Math.abs(mp.intensity - prof2.intensity) + Math.abs(mp.romance - prof2.romance) + Math.abs(mp.comfort - prof2.comfort) + Math.abs(mp.cerebral - prof2.cerebral);
-        score -= dist * p1Pick.expr * 2; // Increased penalty
-        if (p1Pick.expr === 5) score -= 10; // Extra penalty for max enthusiasm on non-shared pick
+      if (genreCount > 0) {
+        score += genreMatchScore / genreCount;
       }
-      if (p2Pick && !p1Pick && lastPicker === 'p2') {
-        const mp = getMovieProfile(movie);
-        const dist = Math.abs(mp.intensity - prof1.intensity) + Math.abs(mp.romance - prof1.romance) + Math.abs(mp.comfort - prof1.comfort) + Math.abs(mp.cerebral - prof1.cerebral);
-        score -= dist * p2Pick.expr * 2; // Increased penalty
-        if (p2Pick.expr === 5) score -= 10; // Extra penalty for max enthusiasm on non-shared pick
+
+      // Quality bonus - favor well-rated movies
+      if (movie.rating >= 7) score += (movie.rating - 6) * 3;
+      if (movie.rating >= 8) score += 5; // Extra bump for really good movies
+      
+      // Recency bonus - slight preference for newer movies
+      const year = parseInt(movie.year);
+      if (year >= 2023) score += 3;
+      else if (year >= 2020) score += 1;
+
+      // Discovery bonus - if movie fits their profile but wasn't picked, it's a discovery
+      if (!p1Pick && !p2Pick) {
+        // Calculate how well this movie fits both profiles
+        const fitP1 = 1 - (Math.abs(movieProfile.intensity - prof1.intensity) + Math.abs(movieProfile.romance - prof1.romance) + Math.abs(movieProfile.comfort - prof1.comfort) + Math.abs(movieProfile.cerebral - prof1.cerebral)) / 4;
+        const fitP2 = 1 - (Math.abs(movieProfile.intensity - prof2.intensity) + Math.abs(movieProfile.romance - prof2.romance) + Math.abs(movieProfile.comfort - prof2.comfort) + Math.abs(movieProfile.cerebral - prof2.cerebral)) / 4;
+        
+        // If it fits both well, it's a great discovery
+        if (fitP1 > 0.7 && fitP2 > 0.7) {
+          score += Math.min(fitP1, fitP2) * 20;
+        }
+      }
+
+      // Penalize one-sided extreme positive picks (refusing compromise)
+      if (p1Pick && p1Pick.expr > 0 && !p2Pick && lastPicker === 'p1') {
+        const dist = Math.abs(movieProfile.intensity - prof2.intensity) + Math.abs(movieProfile.romance - prof2.romance) + Math.abs(movieProfile.comfort - prof2.comfort) + Math.abs(movieProfile.cerebral - prof2.cerebral);
+        score -= dist * p1Pick.expr * 2.5;
+        if (p1Pick.expr === 4) score -= 15;
+      }
+      if (p2Pick && p2Pick.expr > 0 && !p1Pick && lastPicker === 'p2') {
+        const dist = Math.abs(movieProfile.intensity - prof1.intensity) + Math.abs(movieProfile.romance - prof1.romance) + Math.abs(movieProfile.comfort - prof1.comfort) + Math.abs(movieProfile.cerebral - prof1.cerebral);
+        score -= dist * p2Pick.expr * 2.5;
+        if (p2Pick.expr === 4) score -= 15;
       }
 
       return { movie, score };
     });
 
     scored.sort((a, b) => b.score - a.score);
-    const top5 = scored.slice(0, 5).map((s) => ({...s, matchScore: Math.min(98, Math.max(68, Math.round(52 + s.score * 0.9)))}));
+    
+    // Better match score calculation with more range
+    const maxScore = scored[0]?.score || 1;
+    const minScore = scored[4]?.score || 0;
+    const top5 = scored.slice(0, 5).map((s, i) => {
+      // Scale score to 65-98 range based on relative position
+      let matchScore;
+      if (i === 0) {
+        matchScore = Math.min(98, Math.max(82, Math.round(75 + (s.score / Math.max(maxScore, 1)) * 23)));
+      } else {
+        const relativeScore = (s.score - minScore) / Math.max(maxScore - minScore, 1);
+        matchScore = Math.min(92, Math.max(65, Math.round(65 + relativeScore * 27)));
+      }
+      // Check if this movie was picked by either person
+      const isDiscovery = !p1Picks[s.movie.id] && !p2Picks[s.movie.id];
+      return {...s, matchScore, isDiscovery};
+    });
 
     setTimeout(() => { setResult(top5); setPhase('result'); }, 5000);
   };
@@ -666,14 +904,18 @@ const App = () => {
   return (
     <div style={{minHeight:'100vh',padding:'16px',maxWidth:'1100px',margin:'0 auto'}}>
       <header style={{textAlign:'center',padding:'28px 16px 20px',position:'relative'}}>
-        {/* How it Works button */}
+        <h1 className="space" style={{fontSize:'clamp(28px,7vw,48px)',fontWeight:'700',marginBottom:'8px',background:'linear-gradient(135deg,var(--p1),var(--gold),var(--p2))',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent'}}>
+          MovieNight
+        </h1>
+        <p style={{fontSize:'14px',color:'var(--muted)',marginBottom:'8px'}}>Find the movies you'll love together</p>
+        
+        {/* How it Works button - responsive positioning */}
         <button 
           onClick={() => setShowHowItWorks(true)}
           style={{
-            position:'absolute',top:'28px',right:'16px',
-            padding:'8px 16px',borderRadius:'20px',border:'1px solid var(--elevated)',
-            background:'transparent',color:'var(--muted)',fontSize:'12px',fontWeight:'600',
-            cursor:'pointer',transition:'all 0.2s'
+            padding:'6px 14px',borderRadius:'16px',border:'1px solid var(--elevated)',
+            background:'rgba(24,24,31,0.8)',color:'var(--muted)',fontSize:'11px',fontWeight:'600',
+            cursor:'pointer',transition:'all 0.2s',marginBottom:'8px'
           }}
           onMouseOver={(e) => {e.target.style.borderColor='var(--gold)';e.target.style.color='var(--gold)'}}
           onMouseOut={(e) => {e.target.style.borderColor='var(--elevated)';e.target.style.color='var(--muted)'}}
@@ -681,16 +923,12 @@ const App = () => {
           How it works
         </button>
         
-        <h1 className="space" style={{fontSize:'clamp(32px,7vw,48px)',fontWeight:'700',marginBottom:'8px',background:'linear-gradient(135deg,var(--p1),var(--gold),var(--p2))',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent'}}>
-          MovieNight
-        </h1>
-        <p style={{fontSize:'14px',color:'var(--muted)',marginBottom:'4px'}}>Find the movies you'll love together</p>
         {phase === 'q1' && (
-          <div style={{marginTop:'12px'}}>
-            <p style={{fontSize:'12px',color:'var(--dim)',letterSpacing:'1.5px',fontWeight:'500',textTransform:'uppercase'}}>
+          <div style={{marginTop:'8px'}}>
+            <p style={{fontSize:'11px',color:'var(--dim)',letterSpacing:'1.5px',fontWeight:'500',textTransform:'uppercase'}}>
               THOU SHALL SHARE THE REMOTE
             </p>
-            <p style={{fontSize:'11px',color:'var(--dim)',marginTop:'2px',fontStyle:'italic'}}>An ancient law. Recently enforced.</p>
+            <p style={{fontSize:'10px',color:'var(--dim)',marginTop:'2px',fontStyle:'italic'}}>An ancient law. Recently enforced.</p>
           </div>
         )}
       </header>
@@ -728,7 +966,7 @@ const App = () => {
                 <div style={{width:'36px',height:'36px',borderRadius:'12px',background:'var(--p2-soft)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'18px',flexShrink:0}}>🎬</div>
                 <div>
                   <h3 style={{fontSize:'15px',fontWeight:'600',marginBottom:'4px'}}>2. Each pick 2-3 movies</h3>
-                  <p style={{fontSize:'13px',color:'var(--muted)',lineHeight:'1.5'}}>Search for movies you'd want to watch tonight. Rate how much you want each one.</p>
+                  <p style={{fontSize:'13px',color:'var(--muted)',lineHeight:'1.5'}}>Search for movies you'd want to watch tonight. Rate how much you want each one — slide left if you're less interested.</p>
                 </div>
               </div>
               
@@ -843,16 +1081,18 @@ const App = () => {
                 Those who find agreement may be favored.<br/>
                 Those who refuse all compromise may be judged.
               </p>
-              <p style={{fontSize:'11px',color:'var(--dim)',marginTop:'8px',fontStyle:'italic'}}>The scoring is nuanced.</p>
+              <p style={{fontSize:'12px',color:'var(--dim)',marginTop:'10px',lineHeight:'1.5'}}>
+                💡 <span style={{color:'var(--muted)'}}>Tip:</span> Slide left to show less interest, right for more. The algorithm sees all.
+              </p>
             </div>
           </div>
           
-          <div style={{display:'flex',gap:'24px',flexWrap:'wrap',marginBottom:'28px'}}>
+          <div className="partner-columns" style={{display:'flex',gap:'24px',flexWrap:'wrap',marginBottom:'28px'}}>
             <PartnerColumn name="You" emoji="😇" color="var(--p2)" picks={Object.values(p1Picks)}
               onAddPick={(m) => addPick(m, 1)} onRemovePick={(id) => removePick(id, 1)}
               onExpressionChange={(id, val) => setExpr(id, val, 1)} allPicks={{p1: p1Picks, p2: p2Picks}}
               movies={movies} onSearch={search} loading={loading} />
-            <div style={{display:'flex',alignItems:'center',justifyContent:'center',padding:'20px 0'}}>
+            <div className="vs-circle" style={{display:'flex',alignItems:'center',justifyContent:'center',padding:'20px 0'}}>
               <div style={{width:'56px',height:'56px',borderRadius:'50%',background:'var(--elevated)',border:'3px solid var(--gold)',display:'flex',alignItems:'center',justifyContent:'center',fontWeight:'700',fontSize:'16px',color:'var(--gold)',boxShadow:'0 4px 20px rgba(255,217,61,0.3)'}}>VS</div>
             </div>
             <PartnerColumn name="Them" emoji="😈" color="var(--p1)" picks={Object.values(p2Picks)}
@@ -934,20 +1174,22 @@ const App = () => {
           </div>
 
           <div style={{display:'flex',flexDirection:'column',gap:'18px',maxWidth:'700px',margin:'0 auto'}}>
-            {result.map((r, i) => <ResultMovieCard key={r.movie.id} movie={r.movie} score={r.matchScore} rank={i + 1} isWinner={i === 0} />)}
+            {result.map((r, i) => <ResultMovieCard key={r.movie.id} movie={r.movie} score={r.matchScore} rank={i + 1} isWinner={i === 0} isDiscovery={i === 0 && r.isDiscovery} />)}
           </div>
 
           <FairnessBar p1Percent={fairnessScore.p1} p2Percent={fairnessScore.p2} />
 
-          <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(260px,1fr))',gap:'18px',marginTop:'28px',maxWidth:'700px',margin:'28px auto 0'}}>
-            {[['😇 Your Picks', p1Picks, 'var(--p2)', '💚'], ['😈 Their Picks', p2Picks, 'var(--p1)', '❤️']].map(([name, picks, color, emoji]) => (
+          <div className="picks-grid" style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(260px,1fr))',gap:'18px',marginTop:'28px',maxWidth:'700px',margin:'28px auto 0'}}>
+            {[['😇 Your Picks', p1Picks, 'var(--p2)', '💚', '👎'], ['😈 Their Picks', p2Picks, 'var(--p1)', '❤️', '👎']].map(([name, picks, color, emoji, negEmoji]) => (
               <div key={name} style={{background:'var(--card)',borderRadius:'16px',padding:'18px',borderLeft:`4px solid ${color}`}}>
                 <h4 style={{color,fontSize:'14px',fontWeight:'700',marginBottom:'12px'}}>{name}</h4>
                 <div style={{display:'flex',flexDirection:'column',gap:'8px'}}>
                   {Object.values(picks).map(({movie, expr}) => (
                     <div key={movie.id} style={{display:'flex',alignItems:'center',gap:'8px',fontSize:'13px'}}>
-                      <span style={{flex:1,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{movie.title}</span>
-                      <span style={{color,flexShrink:0}}>{emoji.repeat(Math.min(expr, 3))}</span>
+                      <span style={{flex:1,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',color: expr < 0 ? 'var(--dim)' : 'inherit'}}>{movie.title}</span>
+                      <span style={{color: expr < 0 ? 'var(--dim)' : color,flexShrink:0}}>
+                        {expr < 0 ? negEmoji : emoji.repeat(Math.min(Math.max(expr, 1), 4))}
+                      </span>
                     </div>
                   ))}
                 </div>
