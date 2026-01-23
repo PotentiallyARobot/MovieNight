@@ -858,6 +858,7 @@ const App = () => {
   const [lastMovieRatingP2, setLastMovieRatingP2] = useState(null);
   const [lastMovie, setLastMovie] = useState(null);
   const [result, setResult] = useState(null);
+  const [verdictExplanation, setVerdictExplanation] = useState(null);
   const [cache, setCache] = useState({});
   const [randomQuotes, setRandomQuotes] = useState([]);
   const [fairnessScore, setFairnessScore] = useState({ p1: 50, p2: 50 });
@@ -1186,6 +1187,83 @@ const App = () => {
       return {...s, matchScore, isDiscovery};
     });
 
+    // Generate explanation for the verdict
+    const generateExplanation = () => {
+      const winner = top5[0];
+      const runnerUp = top5[1];
+      const movieId = String(winner.movie.id);
+      const p1Pick = p1Picks[movieId];
+      const p2Pick = p2Picks[movieId];
+      
+      const reasons = [];
+      const couldChange = [];
+      
+      // Why did this movie win?
+      if (p1Pick && p1Pick.expr >= 3 && p2Pick && p2Pick.expr >= 3) {
+        // Mutual pick!
+        const p1Level = p1Pick.expr >= 5 ? "really wanted" : p1Pick.expr >= 4 ? "wanted" : "were open to";
+        const p2Level = p2Pick.expr >= 5 ? "really wanted" : p2Pick.expr >= 4 ? "wanted" : "were open to";
+        reasons.push(`🎯 You both picked this movie! You ${p1Level} it, and they ${p2Level} it.`);
+        reasons.push(`✨ Mutual agreement is heavily rewarded by the algorithm.`);
+        
+        if (p1Pick.expr >= 5 && p2Pick.expr >= 5) {
+          reasons.push(`🔥 Both of you rated it "must watch" — this was basically guaranteed to win.`);
+        }
+      } else if (p1Pick && p1Pick.expr >= 3 && !p2Pick) {
+        // Only P1 picked
+        reasons.push(`💚 You picked this movie${p1Pick.expr >= 5 ? ' as a must-watch' : ''}.`);
+        reasons.push(`🔍 It also matched their taste profile based on their other picks.`);
+        couldChange.push(`If they had picked this too, even as "we'd both like," it would've scored even higher.`);
+      } else if (p2Pick && p2Pick.expr >= 3 && !p1Pick) {
+        // Only P2 picked
+        reasons.push(`❤️ They picked this movie${p2Pick.expr >= 5 ? ' as a must-watch' : ''}.`);
+        reasons.push(`🔍 It also matched your taste profile based on your other picks.`);
+        couldChange.push(`If you had picked this too, it would've been an even stronger match.`);
+      } else if (winner.isDiscovery) {
+        // Neither picked - discovery
+        reasons.push(`🌟 Discovery pick! Neither of you chose this specifically.`);
+        reasons.push(`🎯 The algorithm found it based on genres and similar movies you both liked.`);
+        couldChange.push(`Next time, explore the search more — you might find hidden gems to add!`);
+      }
+      
+      // Fairness factor
+      if (lastPicker === 'p1') {
+        reasons.push(`⚖️ Since you picked last time, their preferences got a slight boost.`);
+        couldChange.push(`If they had picked last time, the balance would favor you more.`);
+      } else if (lastPicker === 'p2') {
+        reasons.push(`⚖️ Since they picked last time, your preferences got a slight boost.`);
+        couldChange.push(`If you had picked last time, the balance would favor them more.`);
+      }
+      
+      // Close race?
+      if (runnerUp && winner.score - runnerUp.score < 15) {
+        const runnerUpP1 = p1Picks[String(runnerUp.movie.id)];
+        const runnerUpP2 = p2Picks[String(runnerUp.movie.id)];
+        couldChange.push(`📊 "${runnerUp.movie.title}" was close behind. ${
+          runnerUpP1 && runnerUpP2 ? "You both picked it too!" :
+          runnerUpP1 ? "You picked it — if they had too, it might've won." :
+          runnerUpP2 ? "They picked it — if you had too, it might've won." :
+          "A small rating change could've swapped them."
+        }`);
+      }
+      
+      // Compromise tip
+      const mutualPicks = Object.keys(p1Picks).filter(id => 
+        p2Picks[id] && p1Picks[id].expr >= 3 && p2Picks[id].expr >= 3
+      ).length;
+      
+      if (mutualPicks === 0) {
+        couldChange.push(`💡 Tip: You had no overlapping positive picks. Finding common ground dramatically boosts match scores!`);
+      } else if (mutualPicks >= 2) {
+        reasons.push(`🤝 You found ${mutualPicks} movies you both wanted — that's great compromise!`);
+      }
+      
+      return { reasons, couldChange };
+    };
+    
+    const explanation = generateExplanation();
+    setVerdictExplanation(explanation);
+
     // Calculate fairness score based on whose picks made it to top results
     // This measures whose taste influenced the final recommendations
     let p1Influence = 0, p2Influence = 0;
@@ -1283,7 +1361,8 @@ const App = () => {
 
   const reset = () => {
     setPhase('q1'); setP1Picks({}); setP2Picks({}); setLastPicker(null);
-    setLastMovieRatingP1(null); setLastMovieRatingP2(null); setLastMovie(null); setResult(null);
+    setLastMovieRatingP1(null); setLastMovieRatingP2(null); setLastMovie(null); 
+    setResult(null); setVerdictExplanation(null);
   };
 
   return (
@@ -1950,6 +2029,59 @@ const App = () => {
           <div style={{display:'flex',flexDirection:'column',gap:'16px',maxWidth:'700px',margin:'0 auto'}}>
             {result.map((r, i) => <ResultMovieCard key={r.movie.id} movie={r.movie} score={r.matchScore} rank={i + 1} isWinner={i === 0} isDiscovery={i === 0 && r.isDiscovery} />)}
           </div>
+
+          {/* Verdict Explanation */}
+          {verdictExplanation && (
+            <div style={{maxWidth:'700px',margin:'24px auto 0',animation:'fadeIn 0.5s ease-out 0.3s both'}}>
+              <div style={{
+                background:'linear-gradient(135deg, var(--card), var(--elevated))',
+                borderRadius:'20px',padding:'24px',
+                border:'1px solid var(--elevated)'
+              }}>
+                <h3 className="space" style={{
+                  fontSize:'14px',fontWeight:'700',marginBottom:'16px',
+                  textAlign:'center',color:'var(--gold)',
+                  textTransform:'uppercase',letterSpacing:'1px'
+                }}>
+                  🔍 Why This Won
+                </h3>
+                
+                <div style={{display:'flex',flexDirection:'column',gap:'10px',marginBottom:'20px'}}>
+                  {verdictExplanation.reasons.map((reason, i) => (
+                    <p key={i} style={{
+                      fontSize:'13px',color:'var(--text)',lineHeight:'1.5',
+                      padding:'8px 12px',background:'rgba(255,217,61,0.1)',
+                      borderRadius:'10px',borderLeft:'3px solid var(--gold)'
+                    }}>
+                      {reason}
+                    </p>
+                  ))}
+                </div>
+                
+                {verdictExplanation.couldChange.length > 0 && (
+                  <>
+                    <h4 style={{
+                      fontSize:'12px',fontWeight:'600',marginBottom:'12px',
+                      color:'var(--muted)',textTransform:'uppercase',letterSpacing:'0.5px'
+                    }}>
+                      What Could've Changed It
+                    </h4>
+                    <div style={{display:'flex',flexDirection:'column',gap:'8px'}}>
+                      {verdictExplanation.couldChange.map((tip, i) => (
+                        <p key={i} style={{
+                          fontSize:'12px',color:'var(--muted)',lineHeight:'1.5',
+                          padding:'8px 12px',background:'var(--elevated)',
+                          borderRadius:'10px'
+                        }}>
+                          {tip}
+                        </p>
+                      ))}
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+          )}
 
           <FairnessBar p1Percent={fairnessScore.p1} p2Percent={fairnessScore.p2} />
 
