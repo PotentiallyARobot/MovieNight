@@ -33,13 +33,19 @@
       background-size: cover;
       background-position: center;
       background-repeat: no-repeat;
+      background-attachment: scroll;
       pointer-events: none;
       z-index: 0;
     }
-    /* Mobile background */
+    /* Mobile background - use a wrapper approach to prevent jump */
     @media (max-width: 768px) {
       body::before {
         background-image: url('movienight_mobile_bg_good.png');
+        background-attachment: scroll;
+        /* Extend beyond viewport to prevent jump on iOS */
+        top: -50px;
+        bottom: -50px;
+        height: calc(100% + 100px);
       }
     }
     /* Hide scrollbar but allow scrolling */
@@ -784,36 +790,62 @@ const LastMovieSearch = ({ value, onChange, movies, onSearch }) => {
 };
 
 // Fairness Bar Component
-const FairnessBar = ({ p1Percent, p2Percent }) => (
-  <div style={{background:'var(--card)',borderRadius:'20px',padding:'24px',marginTop:'24px',animation:'fadeIn 0.5s ease-out 0.5s both'}}>
-    <h3 className="space" style={{fontSize:'14px',fontWeight:'700',marginBottom:'16px',textAlign:'center',color:'var(--muted)',textTransform:'uppercase',letterSpacing:'1px'}}>
-      ⚖️ Movie Night Balance
-    </h3>
-    <div style={{display:'flex',flexDirection:'column',gap:'12px'}}>
-      <div>
-        <div style={{display:'flex',justifyContent:'space-between',marginBottom:'6px'}}>
-          <span style={{fontSize:'13px',fontWeight:'600'}}>😇 You</span>
-          <span style={{fontSize:'13px',color:'var(--p2)',fontWeight:'700'}}>{p1Percent}%</span>
+const FairnessBar = ({ p1Percent, p2Percent }) => {
+  // Determine the message based on the balance
+  let message;
+  const diff = Math.abs(p1Percent - p2Percent);
+  
+  if (diff <= 10) {
+    message = "Perfectly balanced, as all things should be ✨";
+  } else if (diff <= 25) {
+    message = p1Percent > p2Percent 
+      ? "Slight edge to you tonight 😊" 
+      : "They got a slight edge this time 🤷";
+  } else if (diff <= 50) {
+    message = p1Percent > p2Percent 
+      ? "Looking good for you tonight 😏" 
+      : "They've been getting their way... 👀";
+  } else if (diff <= 75) {
+    message = p1Percent > p2Percent 
+      ? "You dominated this round! 💪" 
+      : "They really got their way tonight 😅";
+  } else {
+    message = p1Percent > p2Percent 
+      ? "Total victory! They'll pick next time... right? 🏆" 
+      : "They won this one completely. Revenge next time? 😤";
+  }
+  
+  return (
+    <div style={{background:'var(--card)',borderRadius:'20px',padding:'24px',marginTop:'24px',animation:'fadeIn 0.5s ease-out 0.5s both'}}>
+      <h3 className="space" style={{fontSize:'14px',fontWeight:'700',marginBottom:'16px',textAlign:'center',color:'var(--muted)',textTransform:'uppercase',letterSpacing:'1px'}}>
+        ⚖️ Movie Night Balance
+      </h3>
+      <div style={{display:'flex',flexDirection:'column',gap:'12px'}}>
+        <div>
+          <div style={{display:'flex',justifyContent:'space-between',marginBottom:'6px'}}>
+            <span style={{fontSize:'13px',fontWeight:'600'}}>😇 You</span>
+            <span style={{fontSize:'13px',color:'var(--p2)',fontWeight:'700'}}>{p1Percent}%</span>
+          </div>
+          <div style={{height:'12px',background:'var(--elevated)',borderRadius:'6px',overflow:'hidden'}}>
+            <div style={{height:'100%',background:'linear-gradient(90deg,var(--p2),var(--p2-soft))',width:`${p1Percent}%`,borderRadius:'6px',transition:'width 1s ease-out'}}/>
+          </div>
         </div>
-        <div style={{height:'12px',background:'var(--elevated)',borderRadius:'6px',overflow:'hidden'}}>
-          <div style={{height:'100%',background:'linear-gradient(90deg,var(--p2),var(--p2-soft))',width:`${p1Percent}%`,borderRadius:'6px',transition:'width 1s ease-out'}}/>
+        <div>
+          <div style={{display:'flex',justifyContent:'space-between',marginBottom:'6px'}}>
+            <span style={{fontSize:'13px',fontWeight:'600'}}>😈 Them</span>
+            <span style={{fontSize:'13px',color:'var(--p1)',fontWeight:'700'}}>{p2Percent}%</span>
+          </div>
+          <div style={{height:'12px',background:'var(--elevated)',borderRadius:'6px',overflow:'hidden'}}>
+            <div style={{height:'100%',background:'linear-gradient(90deg,var(--p1),var(--p1-soft))',width:`${p2Percent}%`,borderRadius:'6px',transition:'width 1s ease-out'}}/>
+          </div>
         </div>
       </div>
-      <div>
-        <div style={{display:'flex',justifyContent:'space-between',marginBottom:'6px'}}>
-          <span style={{fontSize:'13px',fontWeight:'600'}}>😈 Them</span>
-          <span style={{fontSize:'13px',color:'var(--p1)',fontWeight:'700'}}>{p2Percent}%</span>
-        </div>
-        <div style={{height:'12px',background:'var(--elevated)',borderRadius:'6px',overflow:'hidden'}}>
-          <div style={{height:'100%',background:'linear-gradient(90deg,var(--p1),var(--p1-soft))',width:`${p2Percent}%`,borderRadius:'6px',transition:'width 1s ease-out'}}/>
-        </div>
-      </div>
+      <p style={{textAlign:'center',fontSize:'12px',color:'var(--dim)',marginTop:'14px',fontStyle:'italic'}}>
+        {message}
+      </p>
     </div>
-    <p style={{textAlign:'center',fontSize:'12px',color:'var(--dim)',marginTop:'14px',fontStyle:'italic'}}>
-      {p1Percent > p2Percent ? "Looking good for you tonight 😏" : p2Percent > p1Percent ? "They've been getting their way... 👀" : "Perfectly balanced, as all things should be ✨"}
-    </p>
-  </div>
-);
+  );
+};
 
 const App = () => {
   const [phase, setPhase] = useState('q1');
@@ -912,16 +944,7 @@ const App = () => {
     const shuffled = [...VERDICT_QUOTES].sort(() => Math.random() - 0.5);
     setRandomQuotes(shuffled.slice(0, 2));
 
-    // Calculate fairness display (not the actual algorithm weights)
-    let displayP1 = 50, displayP2 = 50;
-    if (lastPicker === 'p1') { displayP1 = 35; displayP2 = 65; }
-    else if (lastPicker === 'p2') { displayP1 = 65; displayP2 = 35; }
-    if (lastMovieRatingP1 && lastMovieRatingP2) {
-      if (lastPicker === 'p1' && lastMovieRatingP2 <= 2) { displayP1 = 25; displayP2 = 75; }
-      else if (lastPicker === 'p2' && lastMovieRatingP1 <= 2) { displayP1 = 75; displayP2 = 25; }
-    }
-    setFairnessScore({ p1: displayP1, p2: displayP2 });
-
+    // Calculate algorithm weights based on who picked last and how it went
     let fairnessP1 = 1.0, fairnessP2 = 1.0;
     if (lastPicker === 'p1') {
       fairnessP1 = 0.7; fairnessP2 = 1.3;
@@ -1035,12 +1058,12 @@ const App = () => {
       const p1Pick = p1Picks[movie.id], p2Pick = p2Picks[movie.id];
       const movieProfile = getMovieProfile(movie);
       
-      // Negative picks (0-2) reduce score
+      // Negative picks (0-2) reduce score significantly
       if (p1Pick && p1Pick.expr <= 2) {
-        score -= (3 - p1Pick.expr) * 10 * fairnessP1; // 0->30, 1->20, 2->10
+        score -= (3 - p1Pick.expr) * 15 * fairnessP1; // 0->45, 1->30, 2->15
       }
       if (p2Pick && p2Pick.expr <= 2) {
-        score -= (3 - p2Pick.expr) * 10 * fairnessP2;
+        score -= (3 - p2Pick.expr) * 15 * fairnessP2;
       }
       
       // HUGE bonus for mutual positive picks (expr >= 3) - the dream scenario
@@ -1049,29 +1072,41 @@ const App = () => {
         const p2Strength = p2Pick.expr - 2;
         const combined = (p1Strength * fairnessP1) + (p2Strength * fairnessP2);
         const agreementBonus = Math.min(p1Strength, p2Strength);
-        score += combined * combined * 4;
-        score += agreementBonus * agreementBonus * 8;
+        
+        // Exponential bonus for agreement
+        score += combined * combined * 6;
+        score += agreementBonus * agreementBonus * 12;
+        
         // Extra bonus if both are really excited (5+)
         if (p1Pick.expr >= 5 && p2Pick.expr >= 5) {
-          score += 50;
+          score += 80;
+        } else if (p1Pick.expr >= 4 && p2Pick.expr >= 4) {
+          score += 40;
+        }
+        
+        // Compromise bonus - if it's in the middle for both, that's good!
+        if (p1Pick.expr === 3 && p2Pick.expr === 3) {
+          score += 25; // Both said "we'd both like this"
         }
       }
       
-      // One person wants, other doesn't want - conflict but not a dealbreaker
+      // One person wants, other doesn't want - conflict
       if (p1Pick && p2Pick) {
         if ((p1Pick.expr >= 4 && p2Pick.expr <= 1) || (p2Pick.expr >= 4 && p1Pick.expr <= 1)) {
-          score -= 30; // It's a soft no, not a veto
+          score -= 40; // Strong disagreement
+        } else if ((p1Pick.expr >= 4 && p2Pick.expr === 2) || (p2Pick.expr >= 4 && p1Pick.expr === 2)) {
+          score -= 20; // Mild disagreement
         }
       }
       
       // Single positive pick still counts, but less than mutual
       if (p1Pick && p1Pick.expr >= 3 && !p2Pick) {
         const strength = p1Pick.expr - 2;
-        score += strength * strength * 2 * fairnessP1;
+        score += strength * strength * 3 * fairnessP1;
       }
       if (p2Pick && p2Pick.expr >= 3 && !p1Pick) {
         const strength = p2Pick.expr - 2;
-        score += strength * strength * 2 * fairnessP2;
+        score += strength * strength * 3 * fairnessP2;
       }
 
       // Genre matching - how well does this movie fit their combined taste?
@@ -1151,14 +1186,95 @@ const App = () => {
       return {...s, matchScore, isDiscovery};
     });
 
+    // Calculate fairness score based on whose picks made it to top results
+    // This measures whose taste influenced the final recommendations
+    let p1Influence = 0, p2Influence = 0;
+    let compromiseBonus = 0;
+    
+    top5.forEach((r, i) => {
+      const weight = 6 - i; // Top result has weight 6, 5th has weight 2
+      const movieId = String(r.movie.id); // Ensure string comparison
+      const p1Pick = p1Picks[movieId];
+      const p2Pick = p2Picks[movieId];
+      
+      // Both picked this movie - it's a mutual choice!
+      if (p1Pick && p1Pick.expr >= 3 && p2Pick && p2Pick.expr >= 3) {
+        // Split credit based on enthusiasm
+        const p1Enthusiasm = p1Pick.expr - 2;
+        const p2Enthusiasm = p2Pick.expr - 2;
+        const total = p1Enthusiasm + p2Enthusiasm;
+        p1Influence += weight * (p1Enthusiasm / total) * 2;
+        p2Influence += weight * (p2Enthusiasm / total) * 2;
+        compromiseBonus += weight; // Reward for finding common ground
+      }
+      // Only P1 picked positively
+      else if (p1Pick && p1Pick.expr >= 3) {
+        p1Influence += weight * (p1Pick.expr - 2);
+      }
+      // Only P2 picked positively
+      else if (p2Pick && p2Pick.expr >= 3) {
+        p2Influence += weight * (p2Pick.expr - 2);
+      }
+      // Neither picked but it's a discovery - split evenly
+      else {
+        p1Influence += weight * 0.5;
+        p2Influence += weight * 0.5;
+      }
+    });
+    
+    // Apply compromise bonus - pulls scores toward center
+    if (compromiseBonus > 0) {
+      const balanceFactor = compromiseBonus * 2;
+      // Move both toward 50%
+      p1Influence += balanceFactor;
+      p2Influence += balanceFactor;
+    }
+    
+    // Factor in last picker - non-picker gets slight consideration
+    if (lastPicker === 'p1' && p2Influence < p1Influence) {
+      p2Influence *= 1.15;
+    } else if (lastPicker === 'p2' && p1Influence < p2Influence) {
+      p1Influence *= 1.15;
+    }
+    
+    // Ensure minimum influence
+    p1Influence = Math.max(p1Influence, 2);
+    p2Influence = Math.max(p2Influence, 2);
+    
+    const totalInfluence = p1Influence + p2Influence;
+    let p1Percent = Math.round((p1Influence / totalInfluence) * 100);
+    
+    // Clamp to reasonable ranges (15-85%)
+    p1Percent = Math.max(15, Math.min(85, p1Percent));
+    const p2Percent = 100 - p1Percent;
+    
+    setFairnessScore({ p1: p1Percent, p2: p2Percent });
+
     setTimeout(() => { setResult(top5); setPhase('result'); }, 5000);
   };
 
   const shareResult = () => {
-    const text = `🎬 We used MovieNight to settle our movie debate!\n\nThe verdict: "${result[0].movie.title}" (${result[0].matchScore}% match)\n\nTired of fighting about what to watch? Try it:`;
+    const winner = result[0];
+    const runnerUp = result[1];
+    const bothPicked = p1Picks[winner.movie.id] && p2Picks[winner.movie.id];
+    
+    let text;
+    if (bothPicked) {
+      text = `🎬 MovieNight Verdict: We both wanted "${winner.movie.title}"!\n\n${winner.matchScore}% match — the algorithm confirmed what we already knew 😏\n\nStop fighting about what to watch:`;
+    } else {
+      text = `🎬 MovieNight has spoken!\n\nTonight we're watching: "${winner.movie.title}" (${winner.matchScore}% match)\nRunner up: "${runnerUp?.movie.title || 'N/A'}"\n\nSettled our movie debate in 2 minutes. Try it:`;
+    }
+    
     const url = window.location.origin + window.location.pathname;
     if (navigator.share) {
-      navigator.share({ title: 'MovieNight - Stop Fighting About What to Watch', text, url });
+      navigator.share({ 
+        title: 'MovieNight - We Settled Our Movie Debate!', 
+        text, 
+        url 
+      }).catch(() => {
+        // User cancelled or error, fallback to clipboard
+        navigator.clipboard.writeText(text + ' ' + url);
+      });
     } else {
       navigator.clipboard.writeText(text + ' ' + url);
       alert('Copied to clipboard!');
