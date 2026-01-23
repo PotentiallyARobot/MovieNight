@@ -212,23 +212,25 @@ const normalizeMovie = (m) => ({
 });
 
 const ExpressionSlider = ({ value, onChange, color }) => {
-  // 7 positions: 0-2 negative (red), 3 compromise (green), 4-6 positive (teal/gold)
+  // 7 positions: 0 = soft veto (friction), 1-2 negative, 3 compromise, 4-6 positive
   const labels = [
-    'Absolutely not',
-    'Not tonight',
-    'Not for me',
-    "We'd both like this",
-    'I want this',
-    'I really want this',
-    "🔥 TONIGHT'S PICK 🔥"
+    'Not this one',        // 0 - soft veto (adds friction, not hard block)
+    'Rather not',          // 1 - strong negative
+    'Meh',                 // 2 - mild negative  
+    "We'd both like",      // 3 - compromise/endorsement
+    'I want this',         // 4 - positive
+    'Really want',         // 5 - strong positive
+    "🔥 MUST WATCH 🔥"    // 6 - strongest
   ];
   const labelIndex = value;
+  const isVeto = value === 0;
   const isCompromise = value === 3;
   const isMax = value === 6;
   
   // Color logic: red for negative (0-2), green for compromise (3), gold for high (5-6), teal otherwise
   let displayColor;
-  if (value <= 2) displayColor = 'var(--p1)';
+  if (isVeto) displayColor = '#FF6B6B'; // Softer red for soft veto
+  else if (value <= 2) displayColor = 'var(--p1)';
   else if (isCompromise) displayColor = '#4ADE80';
   else if (value >= 5) displayColor = 'var(--gold)';
   else displayColor = color;
@@ -791,34 +793,35 @@ const LastMovieSearch = ({ value, onChange, movies, onSearch }) => {
 
 // Fairness Bar Component
 const FairnessBar = ({ p1Percent, p2Percent }) => {
-  // Determine the message based on the balance
-  let message;
+  // Emotional language rewards instead of just numbers
+  // "Compromise as care, not loss"
   const diff = Math.abs(p1Percent - p2Percent);
   
+  let message, vibe;
   if (diff <= 10) {
-    message = "Perfectly balanced, as all things should be ✨";
+    message = "Balanced energy tonight ✨";
+    vibe = "balanced";
   } else if (diff <= 25) {
     message = p1Percent > p2Percent 
-      ? "Slight edge to you tonight 😊" 
-      : "They got a slight edge this time 🤷";
-  } else if (diff <= 50) {
+      ? "Tonight leans your way" 
+      : "Tonight leans their way";
+    vibe = "slight";
+  } else if (diff <= 40) {
     message = p1Percent > p2Percent 
-      ? "Looking good for you tonight 😏" 
-      : "They've been getting their way... 👀";
-  } else if (diff <= 75) {
-    message = p1Percent > p2Percent 
-      ? "You dominated this round! 💪" 
-      : "They really got their way tonight 😅";
+      ? "Your taste is trending tonight 📈" 
+      : "Their taste is trending tonight 📈";
+    vibe = "moderate";
   } else {
     message = p1Percent > p2Percent 
-      ? "Total victory! They'll pick next time... right? 🏆" 
-      : "They won this one completely. Revenge next time? 😤";
+      ? "You've been flexible lately — your turn to lead 🏆" 
+      : "They've been flexible — their picks are rising 🏆";
+    vibe = "strong";
   }
   
   return (
     <div style={{background:'var(--card)',borderRadius:'20px',padding:'24px',marginTop:'24px',animation:'fadeIn 0.5s ease-out 0.5s both'}}>
       <h3 className="space" style={{fontSize:'14px',fontWeight:'700',marginBottom:'16px',textAlign:'center',color:'var(--muted)',textTransform:'uppercase',letterSpacing:'1px'}}>
-        ⚖️ Movie Night Balance
+        ⚖️ Tonight's Balance
       </h3>
       <div style={{display:'flex',flexDirection:'column',gap:'12px'}}>
         <div>
@@ -840,7 +843,7 @@ const FairnessBar = ({ p1Percent, p2Percent }) => {
           </div>
         </div>
       </div>
-      <p style={{textAlign:'center',fontSize:'12px',color:'var(--dim)',marginTop:'14px',fontStyle:'italic'}}>
+      <p style={{textAlign:'center',fontSize:'13px',color: vibe === 'balanced' ? 'var(--gold)' : 'var(--muted)',marginTop:'14px',fontWeight: vibe === 'balanced' ? '600' : '400'}}>
         {message}
       </p>
     </div>
@@ -1054,63 +1057,150 @@ const App = () => {
       return { intensity: int/count, romance: rom/count, comfort: com/count, cerebral: cer/count };
     };
 
+    // ===========================================
+    // RELATIONSHIP-AWARE SCORING SYSTEM
+    // ===========================================
+    // Key principles:
+    // 1. Reward "distance moved" - bigger compromise = more credit
+    // 2. Soft vetoes (friction) not hard vetoes
+    // 3. Endorsement counts more if you had alternatives
+    // 4. System takes the blame, not the partner
+    // 5. Slightly opaque = feels fair
+    
+    // Calculate "taste distance" - how far is this movie from someone's profile?
+    const getDistanceFromProfile = (movie, profile) => {
+      const mp = getMovieProfile(movie);
+      return (
+        Math.abs(mp.intensity - profile.intensity) +
+        Math.abs(mp.romance - profile.romance) +
+        Math.abs(mp.comfort - profile.comfort) +
+        Math.abs(mp.cerebral - profile.cerebral)
+      ) / 4; // 0 = perfect match, 1 = opposite
+    };
+
     const scored = Object.values(cache).map(movie => {
       let score = 0;
       const p1Pick = p1Picks[movie.id], p2Pick = p2Picks[movie.id];
       const movieProfile = getMovieProfile(movie);
       
-      // Negative picks (0-2) reduce score significantly
-      if (p1Pick && p1Pick.expr <= 2) {
-        score -= (3 - p1Pick.expr) * 15 * fairnessP1; // 0->45, 1->30, 2->15
-      }
-      if (p2Pick && p2Pick.expr <= 2) {
-        score -= (3 - p2Pick.expr) * 15 * fairnessP2;
+      // How far is this movie from each person's taste?
+      const distFromP1 = getDistanceFromProfile(movie, prof1);
+      const distFromP2 = getDistanceFromProfile(movie, prof2);
+      
+      // ===========================================
+      // SOFT VETO SYSTEM - Friction, not deletion
+      // ===========================================
+      // Vetoes add "drag" - movie can still win if partner pushes hard enough
+      // This prevents nuclear fights while giving control
+      
+      if (p1Pick && p1Pick.expr === 0) {
+        // Soft veto: heavy friction, but not impossible
+        // "This one didn't survive tonight's balance check"
+        score -= 120 * fairnessP1;
+      } else if (p1Pick && p1Pick.expr === 1) {
+        score -= 45 * fairnessP1;
+      } else if (p1Pick && p1Pick.expr === 2) {
+        score -= 15 * fairnessP1;
       }
       
-      // HUGE bonus for mutual positive picks (expr >= 3) - the dream scenario
+      if (p2Pick && p2Pick.expr === 0) {
+        score -= 120 * fairnessP2;
+      } else if (p2Pick && p2Pick.expr === 1) {
+        score -= 45 * fairnessP2;
+      } else if (p2Pick && p2Pick.expr === 2) {
+        score -= 15 * fairnessP2;
+      }
+      
+      // ===========================================
+      // ASYMMETRIC COMPROMISE CREDIT
+      // ===========================================
+      // Reward based on DISTANCE MOVED, not just agreement
+      // Moving from horror→romcom = bigger sacrifice than action→thriller
+      
       if (p1Pick && p2Pick && p1Pick.expr >= 3 && p2Pick.expr >= 3) {
-        const p1Strength = p1Pick.expr - 2; // 3->1, 4->2, 5->3, 6->4
+        const p1Strength = p1Pick.expr - 2;
         const p2Strength = p2Pick.expr - 2;
-        const combined = (p1Strength * fairnessP1) + (p2Strength * fairnessP2);
-        const agreementBonus = Math.min(p1Strength, p2Strength);
         
-        // Exponential bonus for agreement
-        score += combined * combined * 6;
-        score += agreementBonus * agreementBonus * 12;
+        // Base agreement bonus - agreement is still king
+        const agreementLevel = Math.min(p1Strength, p2Strength);
+        score += agreementLevel * agreementLevel * 18;
         
-        // Extra bonus if both are really excited (5+)
+        // DISTANCE BONUS - reward stretching outside comfort zone
+        // If P1 endorsed something far from their taste, that's generous
+        const p1Stretch = distFromP1 * p1Strength * 25;
+        const p2Stretch = distFromP2 * p2Strength * 25;
+        score += p1Stretch + p2Stretch;
+        
+        // Endorsement bonus - agreeing to partner's pick
+        // "Sacrifice only counts if it hurts a little"
+        if (p1Pick.expr === 3 && distFromP1 > 0.3) {
+          // P1 is compromising on something outside their zone
+          score += 35;
+        }
+        if (p2Pick.expr === 3 && distFromP2 > 0.3) {
+          score += 35;
+        }
+        
+        // Double enthusiasm = clear winner
         if (p1Pick.expr >= 5 && p2Pick.expr >= 5) {
-          score += 80;
-        } else if (p1Pick.expr >= 4 && p2Pick.expr >= 4) {
-          score += 40;
-        }
-        
-        // Compromise bonus - if it's in the middle for both, that's good!
-        if (p1Pick.expr === 3 && p2Pick.expr === 3) {
-          score += 25; // Both said "we'd both like this"
+          score += 100;
+        } else if (p1Pick.expr >= 5 || p2Pick.expr >= 5) {
+          // One person REALLY wants it, other agrees = solid
+          score += 45;
         }
       }
       
-      // One person wants, other doesn't want - conflict
-      if (p1Pick && p2Pick) {
-        if ((p1Pick.expr >= 4 && p2Pick.expr <= 1) || (p2Pick.expr >= 4 && p1Pick.expr <= 1)) {
-          score -= 40; // Strong disagreement
-        } else if ((p1Pick.expr >= 4 && p2Pick.expr === 2) || (p2Pick.expr >= 4 && p1Pick.expr === 2)) {
-          score -= 20; // Mild disagreement
-        }
-      }
-      
-      // Single positive pick still counts, but less than mutual
+      // ===========================================
+      // ONE-SIDED PICKS - Profile matching matters
+      // ===========================================
       if (p1Pick && p1Pick.expr >= 3 && !p2Pick) {
         const strength = p1Pick.expr - 2;
-        score += strength * strength * 3 * fairnessP1;
+        const fitToP2 = 1 - distFromP2; // How well does it fit partner?
+        
+        // Your pick can win if it fits their taste
+        score += strength * strength * 3.5 * fairnessP1;
+        score += fitToP2 * strength * 20; // Big bonus for profile match
+        
+        // Extra credit if you're picking something that's a stretch for YOU
+        // (shows you're thinking of them)
+        if (distFromP1 > 0.25) {
+          score += distFromP1 * strength * 15;
+        }
       }
+      
       if (p2Pick && p2Pick.expr >= 3 && !p1Pick) {
         const strength = p2Pick.expr - 2;
-        score += strength * strength * 3 * fairnessP2;
+        const fitToP1 = 1 - distFromP1;
+        
+        score += strength * strength * 3.5 * fairnessP2;
+        score += fitToP1 * strength * 20;
+        
+        if (distFromP2 > 0.25) {
+          score += distFromP2 * strength * 15;
+        }
+      }
+      
+      // ===========================================
+      // CONFLICT WITH SOFT LANDING
+      // ===========================================
+      // Don't make partner the villain - just add friction
+      if (p1Pick && p2Pick) {
+        if (p1Pick.expr >= 4 && p2Pick.expr <= 1) {
+          // Conflict: friction scales with how much P1 wanted it
+          // "This one faced resistance in tonight's balance"
+          score -= 35 + (p1Pick.expr - 3) * 8;
+        }
+        if (p2Pick.expr >= 4 && p1Pick.expr <= 1) {
+          score -= 35 + (p2Pick.expr - 3) * 8;
+        }
+        
+        // Mild friction for lukewarm reception
+        if ((p1Pick.expr >= 4 && p2Pick.expr === 2) || (p2Pick.expr >= 4 && p1Pick.expr === 2)) {
+          score -= 10;
+        }
       }
 
-      // Genre matching - how well does this movie fit their combined taste?
+      // Genre matching - combined taste profile
       let genreMatchScore = 0;
       let genreCount = 0;
       (movie.genre_ids || []).forEach(gid => {
@@ -1188,6 +1278,7 @@ const App = () => {
     });
 
     // Generate explanation for the verdict
+    // KEY: System takes the blame, not the partner
     const generateExplanation = () => {
       const winner = top5[0];
       const runnerUp = top5[1];
@@ -1198,53 +1289,76 @@ const App = () => {
       const reasons = [];
       const couldChange = [];
       
-      // Why did this movie win?
-      if (p1Pick && p1Pick.expr >= 3 && p2Pick && p2Pick.expr >= 3) {
-        // Mutual pick!
-        const p1Level = p1Pick.expr >= 5 ? "really wanted" : p1Pick.expr >= 4 ? "wanted" : "were open to";
-        const p2Level = p2Pick.expr >= 5 ? "really wanted" : p2Pick.expr >= 4 ? "wanted" : "were open to";
-        reasons.push(`🎯 You both picked this movie! You ${p1Level} it, and they ${p2Level} it.`);
-        reasons.push(`✨ Mutual agreement is heavily rewarded by the algorithm.`);
+      // Calculate who stretched more (for compromise credit)
+      const winnerDistFromP1 = getDistanceFromProfile(winner.movie, prof1);
+      const winnerDistFromP2 = getDistanceFromProfile(winner.movie, prof2);
+      
+      // Why did this movie win? (positive framing)
+      if (p1Pick && p2Pick && p1Pick.expr >= 3 && p2Pick.expr >= 3) {
+        reasons.push(`🎯 You both wanted this one — mutual picks always rise to the top.`);
+        
+        // Credit the bigger compromise
+        if (winnerDistFromP1 > 0.35 && winnerDistFromP2 > 0.35) {
+          reasons.push(`✨ This was a stretch for both of you — that's real compromise.`);
+        } else if (winnerDistFromP1 > winnerDistFromP2 + 0.15) {
+          reasons.push(`💚 You stretched outside your usual taste for this one.`);
+        } else if (winnerDistFromP2 > winnerDistFromP1 + 0.15) {
+          reasons.push(`❤️ They stretched outside their comfort zone to meet you here.`);
+        }
         
         if (p1Pick.expr >= 5 && p2Pick.expr >= 5) {
-          reasons.push(`🔥 Both of you rated it "must watch" — this was basically guaranteed to win.`);
+          reasons.push(`🔥 Double must-watch — this was always going to win.`);
+        } else if (p1Pick.expr === 3 || p2Pick.expr === 3) {
+          reasons.push(`🤝 Someone said "we'd both like this" — the algorithm rewards flexibility.`);
         }
       } else if (p1Pick && p1Pick.expr >= 3 && !p2Pick) {
-        // Only P1 picked
-        reasons.push(`💚 You picked this movie${p1Pick.expr >= 5 ? ' as a must-watch' : ''}.`);
-        reasons.push(`🔍 It also matched their taste profile based on their other picks.`);
-        couldChange.push(`If they had picked this too, even as "we'd both like," it would've scored even higher.`);
+        reasons.push(`💚 Your pick matched tonight's combined taste profile.`);
+        if (winnerDistFromP2 < 0.3) {
+          reasons.push(`🎯 It's actually close to their usual preferences too.`);
+        }
+        couldChange.push(`If they'd endorsed this, it would've been even stronger.`);
       } else if (p2Pick && p2Pick.expr >= 3 && !p1Pick) {
-        // Only P2 picked
-        reasons.push(`❤️ They picked this movie${p2Pick.expr >= 5 ? ' as a must-watch' : ''}.`);
-        reasons.push(`🔍 It also matched your taste profile based on your other picks.`);
-        couldChange.push(`If you had picked this too, it would've been an even stronger match.`);
+        reasons.push(`❤️ Their pick aligned well with the combined taste profile.`);
+        if (winnerDistFromP1 < 0.3) {
+          reasons.push(`🎯 It's not far from your usual taste either.`);
+        }
+        couldChange.push(`Your endorsement would've made this an even clearer winner.`);
       } else if (winner.isDiscovery) {
-        // Neither picked - discovery
-        reasons.push(`🌟 Discovery pick! Neither of you chose this specifically.`);
-        reasons.push(`🎯 The algorithm found it based on genres and similar movies you both liked.`);
-        couldChange.push(`Next time, explore the search more — you might find hidden gems to add!`);
+        reasons.push(`🌟 Discovery! The algorithm found common ground you both missed.`);
+        reasons.push(`🎯 This fits both your profiles based on genres and similar movies.`);
       }
       
-      // Fairness factor
+      // Soft language for friction/vetoes - system takes the blame
+      const p1Vetoes = Object.values(p1Picks).filter(p => p.expr === 0).length;
+      const p2Vetoes = Object.values(p2Picks).filter(p => p.expr === 0).length;
+      if (p1Vetoes > 0 || p2Vetoes > 0) {
+        // Don't say "your partner vetoed" - say "didn't survive balance check"
+        reasons.push(`⚖️ ${p1Vetoes + p2Vetoes} movie(s) faced resistance in tonight's balance.`);
+      }
+      
+      // Fairness factor - frame as system behavior, not blame
       if (lastPicker === 'p1') {
-        reasons.push(`⚖️ Since you picked last time, their preferences got a slight boost.`);
-        couldChange.push(`If they had picked last time, the balance would favor you more.`);
+        reasons.push(`📊 Tonight's balance leaned slightly toward their taste.`);
       } else if (lastPicker === 'p2') {
-        reasons.push(`⚖️ Since they picked last time, your preferences got a slight boost.`);
-        couldChange.push(`If you had picked last time, the balance would favor them more.`);
+        reasons.push(`📊 Tonight's balance leaned slightly toward your taste.`);
       }
       
-      // Close race?
-      if (runnerUp && winner.score - runnerUp.score < 15) {
-        const runnerUpP1 = p1Picks[String(runnerUp.movie.id)];
-        const runnerUpP2 = p2Picks[String(runnerUp.movie.id)];
-        couldChange.push(`📊 "${runnerUp.movie.title}" was close behind. ${
-          runnerUpP1 && runnerUpP2 ? "You both picked it too!" :
-          runnerUpP1 ? "You picked it — if they had too, it might've won." :
-          runnerUpP2 ? "They picked it — if you had too, it might've won." :
-          "A small rating change could've swapped them."
-        }`);
+      // Close race - opportunity framing
+      if (runnerUp && winner.score - runnerUp.score < 40) {
+        couldChange.push(`📊 "${runnerUp.movie.title}" was close — small changes could shift future results.`);
+      }
+      
+      // Emotional language rewards (not numbers)
+      const mutualPicks = Object.keys(p1Picks).filter(id => 
+        p2Picks[id] && p1Picks[id].expr >= 3 && p2Picks[id].expr >= 3
+      ).length;
+      
+      if (mutualPicks === 0) {
+        couldChange.push(`💡 No overlapping picks tonight. Finding shared favorites boosts your results!`);
+      } else if (mutualPicks >= 3) {
+        reasons.push(`🌟 Great alignment tonight — you found ${mutualPicks} movies you both wanted!`);
+      } else if (mutualPicks >= 1) {
+        reasons.push(`🤝 You found common ground on ${mutualPicks} movie${mutualPicks > 1 ? 's' : ''}.`);
       }
       
       // Compromise tip
@@ -1252,20 +1366,43 @@ const App = () => {
         p2Picks[id] && p1Picks[id].expr >= 3 && p2Picks[id].expr >= 3
       ).length;
       
+      // Track who compromised more (endorsed partner's picks)
+      let p1Compromised = 0, p2Compromised = 0;
+      Object.keys(p1Picks).forEach(id => {
+        if (p2Picks[id] && p1Picks[id].expr >= 3 && p2Picks[id].expr >= 3) {
+          // This is a mutual pick - who endorsed whose movie?
+          // We can't know for sure, but lower enthusiasm = more compromise
+          if (p1Picks[id].expr < p2Picks[id].expr) p1Compromised++;
+          if (p2Picks[id].expr < p1Picks[id].expr) p2Compromised++;
+        }
+      });
+      
       if (mutualPicks === 0) {
         couldChange.push(`💡 Tip: You had no overlapping positive picks. Finding common ground dramatically boosts match scores!`);
       } else if (mutualPicks >= 2) {
-        reasons.push(`🤝 You found ${mutualPicks} movies you both wanted — that's great compromise!`);
+        reasons.push(`🤝 You found ${mutualPicks} movies you both wanted — great teamwork!`);
       }
       
-      return { reasons, couldChange };
+      if (p1Compromised > p2Compromised) {
+        reasons.push(`🏅 You compromised more — you endorsed their picks more enthusiastically than they endorsed yours.`);
+      } else if (p2Compromised > p1Compromised) {
+        reasons.push(`🏅 They compromised more — they endorsed your picks with more enthusiasm.`);
+      }
+      
+      // Check for vetoes used
+      const p1Vetoes = Object.values(p1Picks).filter(p => p.expr === 0).length;
+      const p2Vetoes = Object.values(p2Picks).filter(p => p.expr === 0).length;
+      if (p1Vetoes > 0 || p2Vetoes > 0) {
+        reasons.push(`🚫 ${p1Vetoes + p2Vetoes} veto(s) were used — those movies were eliminated.`);
+      }
+      
+      return { reasons, couldChange, p1Compromised, p2Compromised };
     };
     
     const explanation = generateExplanation();
     setVerdictExplanation(explanation);
 
-    // Calculate fairness score based on whose picks made it to top results
-    // This measures whose taste influenced the final recommendations
+    // Calculate fairness score based on whose picks made it AND who compromised
     let p1Influence = 0, p2Influence = 0;
     let compromiseBonus = 0;
     
