@@ -875,14 +875,21 @@ const MobileTurnColumn = ({ turn, picks, onAddPick, onRemovePick, onExpressionCh
   );
 };
 
-const ResultMovieCard = ({ movie, score, rank, isWinner, isDiscovery }) => (
-  <div style={{
-    background: isWinner ? 'linear-gradient(135deg,var(--card),var(--elevated))' : 'var(--card)',
-    borderRadius: isWinner ? '24px' : '16px', padding: isWinner ? '20px' : '14px',
-    border: isWinner ? '3px solid var(--gold)' : 'none',
-    boxShadow: isWinner ? '0 0 60px rgba(255,217,61,0.2)' : '0 4px 20px rgba(0,0,0,0.2)',
-    animation: `reveal 0.5s ease-out ${rank * 0.15}s both`
-  }}>
+const ResultMovieCard = ({ movie, score, rank, isWinner, isDiscovery, onClick }) => (
+  <div 
+    onClick={!isWinner && onClick ? () => onClick(movie, score) : undefined}
+    style={{
+      background: isWinner ? 'linear-gradient(135deg,var(--card),var(--elevated))' : 'var(--card)',
+      borderRadius: isWinner ? '24px' : '16px', padding: isWinner ? '20px' : '14px',
+      border: isWinner ? '3px solid var(--gold)' : 'none',
+      boxShadow: isWinner ? '0 0 60px rgba(255,217,61,0.2)' : '0 4px 20px rgba(0,0,0,0.2)',
+      animation: `reveal 0.5s ease-out ${rank * 0.15}s both`,
+      cursor: !isWinner ? 'pointer' : 'default',
+      transition: 'transform 0.2s, box-shadow 0.2s'
+    }}
+    onMouseEnter={!isWinner ? (e) => { e.currentTarget.style.transform = 'scale(1.02)'; e.currentTarget.style.boxShadow = '0 6px 25px rgba(0,0,0,0.3)'; } : undefined}
+    onMouseLeave={!isWinner ? (e) => { e.currentTarget.style.transform = 'scale(1)'; e.currentTarget.style.boxShadow = '0 4px 20px rgba(0,0,0,0.2)'; } : undefined}
+  >
     {isWinner ? (
       <div style={{display:'flex',flexDirection:'column',alignItems:'center',textAlign:'center'}}>
         <div style={{fontSize:'12px',color:'var(--gold)',fontWeight:'700',marginBottom:'12px',textTransform:'uppercase',letterSpacing:'2px'}}>🎬 THE VERDICT</div>
@@ -951,6 +958,7 @@ const ResultMovieCard = ({ movie, score, rank, isWinner, isDiscovery }) => (
             <span style={{fontSize:'14px',fontWeight:'700',color:'var(--gold)',marginLeft:'auto'}}>{score}%</span>
           </div>
         </div>
+        <div style={{fontSize:'16px',color:'var(--muted)',flexShrink:0}}>›</div>
       </div>
     )}
   </div>
@@ -1111,6 +1119,7 @@ const App = () => {
   const [waitlistQuestion, setWaitlistQuestion] = useState('');
   const [waitlistMessage, setWaitlistMessage] = useState('');
   const [isSharedView, setIsSharedView] = useState(false);
+  const [selectedMovie, setSelectedMovie] = useState(null); // For movie detail modal
   
   // Mobile turn-based picking
   const [isMobile, setIsMobile] = useState(false);
@@ -1521,6 +1530,12 @@ const App = () => {
       return { movie, score };
     });
 
+    // Add a small random factor to keep things interesting (±5% variance)
+    scored.forEach(s => {
+      const randomFactor = 0.95 + (Math.random() * 0.1); // 0.95 to 1.05
+      s.score *= randomFactor;
+    });
+
     scored.sort((a, b) => b.score - a.score);
     
     // Better match score calculation with more range
@@ -1540,8 +1555,7 @@ const App = () => {
       return {...s, matchScore, isDiscovery};
     });
 
-    // Generate explanation for the verdict
-    // KEY: System takes the blame, not the partner
+    // Generate explanation for the verdict - now with DRAMA
     const generateExplanation = () => {
       const winner = top5[0];
       const runnerUp = top5[1];
@@ -1556,89 +1570,186 @@ const App = () => {
       const winnerDistFromP1 = getDistanceFromProfile(winner.movie, prof1);
       const winnerDistFromP2 = getDistanceFromProfile(winner.movie, prof2);
       
-      // Why did this movie win? (positive framing)
+      // Comical reason pools
+      const mutualPickReasons = [
+        `🎯 Plot twist: You both wanted this! The algorithm is shook.`,
+        `🎯 Against all odds, you agreed on something. Incredible.`,
+        `🎯 You both picked this. The couples therapist can take the night off.`,
+        `🎯 Mutual agreement detected. Are you sure you're a real couple?`,
+        `🎯 Both of you wanted this one. The universe is healing.`
+      ];
+      
+      const compromiseReasons = [
+        `✨ This was outside both your comfort zones. That's called growth, baby.`,
+        `✨ Neither of you would normally pick this, but here we are. Compromise is beautiful.`,
+        `✨ You both stretched for this one. Hallmark should make a movie about it.`
+      ];
+      
+      const p1StretchReasons = [
+        `💚 You picked something outside your usual taste. Relationship points +100.`,
+        `💚 This isn't your typical vibe, but you went for it anyway. Respect.`,
+        `💚 You ventured outside your comfort zone for love. Or maybe just to avoid an argument.`
+      ];
+      
+      const p2StretchReasons = [
+        `❤️ They stretched outside their comfort zone to meet you here. Buy them snacks.`,
+        `❤️ This isn't their usual genre, but they compromised. Crown them.`,
+        `❤️ They went outside their taste profile for this. Remember this moment.`
+      ];
+      
+      const doubleMustWatch = [
+        `🔥 Double must-watch! This movie never stood a chance of losing.`,
+        `🔥 You both rated this maximum spicy. It was over before it began.`,
+        `🔥 Unanimous enthusiasm. The algorithm barely had to think.`
+      ];
+      
+      const flexibleReasons = [
+        `🤝 Someone said "we'd both like this" — flexibility is rewarded in this court.`,
+        `🤝 A "we'd both enjoy" pick helped seal the deal. Diplomacy wins.`,
+        `🤝 The algorithm detected compromise energy. It approves.`
+      ];
+      
+      const soloP1WinReasons = [
+        `💚 Your pick won! It secretly matched their vibe too.`,
+        `💚 You manifested this. Your taste profile spoke louder.`,
+        `💚 This was your pick, and the algorithm agreed with your judgment.`
+      ];
+      
+      const soloP2WinReasons = [
+        `❤️ Their pick won! It aligned with your hidden preferences.`,
+        `❤️ They got their way, but honestly? The algorithm says you'd like it too.`,
+        `❤️ Their movie triumphed. The stars aligned (and so did your taste profiles).`
+      ];
+      
+      const discoveryReasons = [
+        `🌟 Wild card! Neither of you picked this, but the algorithm thinks you're both sleeping on it.`,
+        `🌟 Discovery pick! The algorithm played matchmaker with a movie neither of you considered.`,
+        `🌟 Surprise! This came out of nowhere based on your combined genre DNA.`
+      ];
+      
+      const vetoReasons = [
+        `⚖️ Some movies were... aggressively declined. They have been eliminated.`,
+        `⚖️ A few films faced the guillotine tonight. RIP to the vetoed.`,
+        `⚖️ The court notes some movies were shown no mercy. Fair enough.`
+      ];
+      
+      const fairnessP1Reasons = [
+        `📊 You picked last time, so tonight's scales tipped slightly toward them. Justice.`,
+        `📊 The algorithm remembers who picked last time. Balance has been applied.`
+      ];
+      
+      const fairnessP2Reasons = [
+        `📊 They picked last time, so the algorithm gave you a little boost. You're welcome.`,
+        `📊 Tonight's balance favored you slightly. Past debts are being repaid.`
+      ];
+      
+      const closeRaceReasons = [
+        `📊 "${runnerUp?.movie.title}" was THIS close. One different rating could've changed everything.`,
+        `📊 The runner-up almost won. Drama! Intrigue! A slightly different slider position!`,
+        `📊 "${runnerUp?.movie.title}" lost by a hair. The algorithm agonized over this.`
+      ];
+      
+      const noOverlapTips = [
+        `💡 Zero overlap tonight. You two are on completely different wavelengths and it's honestly impressive.`,
+        `💡 No mutual picks? Bold strategy. Finding common ground would've helped.`,
+        `💡 You picked completely different movies. The algorithm had to work overtime.`
+      ];
+      
+      const goodAlignmentReasons = [
+        `🌟 You found ${Object.keys(p1Picks).filter(id => p2Picks[id] && p1Picks[id].expr >= 3 && p2Picks[id].expr >= 3).length} movies you both wanted! The algorithm is impressed.`,
+        `🌟 Multiple mutual picks tonight. Are you two... communicating? Wild concept.`
+      ];
+      
+      const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
+      
+      // Why did this movie win? (with comedy)
       if (p1Pick && p2Pick && p1Pick.expr >= 3 && p2Pick.expr >= 3) {
-        reasons.push(`🎯 You both wanted this one — mutual picks always rise to the top.`);
+        reasons.push(pick(mutualPickReasons));
         
-        // Credit the bigger compromise
         if (winnerDistFromP1 > 0.35 && winnerDistFromP2 > 0.35) {
-          reasons.push(`✨ This was a stretch for both of you — that's real compromise.`);
+          reasons.push(pick(compromiseReasons));
         } else if (winnerDistFromP1 > winnerDistFromP2 + 0.15) {
-          reasons.push(`💚 You stretched outside your usual taste for this one.`);
+          reasons.push(pick(p1StretchReasons));
         } else if (winnerDistFromP2 > winnerDistFromP1 + 0.15) {
-          reasons.push(`❤️ They stretched outside their comfort zone to meet you here.`);
+          reasons.push(pick(p2StretchReasons));
         }
         
         if (p1Pick.expr >= 5 && p2Pick.expr >= 5) {
-          reasons.push(`🔥 Double must-watch — this was always going to win.`);
+          reasons.push(pick(doubleMustWatch));
         } else if (p1Pick.expr === 3 || p2Pick.expr === 3) {
-          reasons.push(`🤝 Someone said "we'd both like this" — the algorithm rewards flexibility.`);
+          reasons.push(pick(flexibleReasons));
         }
       } else if (p1Pick && p1Pick.expr >= 3 && !p2Pick) {
-        reasons.push(`💚 Your pick matched tonight's combined taste profile.`);
+        reasons.push(pick(soloP1WinReasons));
         if (winnerDistFromP2 < 0.3) {
-          reasons.push(`🎯 It's actually close to their usual preferences too.`);
+          reasons.push(`🎯 Secretly, this fits their taste profile too. They just didn't know it.`);
         }
-        couldChange.push(`If they'd endorsed this, it would've been even stronger.`);
+        couldChange.push(`If they'd also picked this, it would've been a landslide victory.`);
       } else if (p2Pick && p2Pick.expr >= 3 && !p1Pick) {
-        reasons.push(`❤️ Their pick aligned well with the combined taste profile.`);
+        reasons.push(pick(soloP2WinReasons));
         if (winnerDistFromP1 < 0.3) {
-          reasons.push(`🎯 It's not far from your usual taste either.`);
+          reasons.push(`🎯 Plot twist: this actually matches your taste profile. The algorithm knows.`);
         }
-        couldChange.push(`Your endorsement would've made this an even clearer winner.`);
+        couldChange.push(`Your endorsement would've made this an even more crushing victory.`);
       } else if (winner.isDiscovery) {
-        reasons.push(`🌟 Discovery! The algorithm found common ground you both missed.`);
-        reasons.push(`🎯 This fits both your profiles based on genres and similar movies.`);
+        reasons.push(pick(discoveryReasons));
       }
       
-      // Soft language for friction/vetoes - system takes the blame
+      // Vetoes
       const p1Vetoes = Object.values(p1Picks).filter(p => p.expr === 0).length;
       const p2Vetoes = Object.values(p2Picks).filter(p => p.expr === 0).length;
       if (p1Vetoes > 0 || p2Vetoes > 0) {
-        // Don't say "your partner vetoed" - say "didn't survive balance check"
-        reasons.push(`⚖️ ${p1Vetoes + p2Vetoes} movie(s) faced resistance in tonight's balance.`);
+        reasons.push(pick(vetoReasons));
       }
       
-      // Fairness factor - frame as system behavior, not blame
+      // Fairness factor
       if (lastPicker === 'p1') {
-        reasons.push(`📊 Tonight's balance leaned slightly toward their taste.`);
+        reasons.push(pick(fairnessP1Reasons));
       } else if (lastPicker === 'p2') {
-        reasons.push(`📊 Tonight's balance leaned slightly toward your taste.`);
+        reasons.push(pick(fairnessP2Reasons));
       }
       
-      // Close race - opportunity framing
+      // Close race
       if (runnerUp && winner.score - runnerUp.score < 40) {
-        couldChange.push(`📊 "${runnerUp.movie.title}" was close — small changes could shift future results.`);
+        couldChange.push(pick(closeRaceReasons));
       }
       
-      // Emotional language rewards (not numbers)
+      // Overlap check
       const mutualPicks = Object.keys(p1Picks).filter(id => 
         p2Picks[id] && p1Picks[id].expr >= 3 && p2Picks[id].expr >= 3
       ).length;
       
       if (mutualPicks === 0) {
-        couldChange.push(`💡 No overlapping picks tonight. Finding shared favorites boosts your results!`);
-      } else if (mutualPicks >= 3) {
-        reasons.push(`🌟 Great alignment tonight — you found ${mutualPicks} movies you both wanted!`);
-      } else if (mutualPicks >= 1) {
-        reasons.push(`🤝 You found common ground on ${mutualPicks} movie${mutualPicks > 1 ? 's' : ''}.`);
+        couldChange.push(pick(noOverlapTips));
+      } else if (mutualPicks >= 2) {
+        reasons.push(pick(goodAlignmentReasons));
       }
       
-      // Track who compromised more (endorsed partner's picks)
+      // Track who compromised more
       let p1Compromised = 0, p2Compromised = 0;
       Object.keys(p1Picks).forEach(id => {
         if (p2Picks[id] && p1Picks[id].expr >= 3 && p2Picks[id].expr >= 3) {
-          // This is a mutual pick - who endorsed whose movie?
-          // We can't know for sure, but lower enthusiasm = more compromise
           if (p1Picks[id].expr < p2Picks[id].expr) p1Compromised++;
           if (p2Picks[id].expr < p1Picks[id].expr) p2Compromised++;
         }
       });
       
+      const p1CompromiseReasons = [
+        `🏅 You compromised more tonight. Your flexibility has been noted by the court.`,
+        `🏅 The data shows you bent more than they did. Nobel Peace Prize pending.`,
+        `🏅 You were the bigger person tonight. Metaphorically. We don't know your heights.`
+      ];
+      
+      const p2CompromiseReasons = [
+        `🏅 They compromised more tonight. Give credit where it's due.`,
+        `🏅 They showed more flexibility. Consider saying thank you. Maybe.`,
+        `🏅 The algorithm detected they tried harder to meet you halfway. Just saying.`
+      ];
+      
       if (p1Compromised > p2Compromised) {
-        reasons.push(`🏅 You compromised more — you endorsed their picks more enthusiastically than they endorsed yours.`);
+        reasons.push(pick(p1CompromiseReasons));
       } else if (p2Compromised > p1Compromised) {
-        reasons.push(`🏅 They compromised more — they endorsed your picks with more enthusiasm.`);
+        reasons.push(pick(p2CompromiseReasons));
       }
       
       return { reasons, couldChange, p1Compromised, p2Compromised };
@@ -1797,7 +1908,7 @@ const App = () => {
         <h1 onClick={reset} className="space" style={{fontSize:'clamp(28px,7vw,48px)',fontWeight:'700',marginBottom:'6px',background:'linear-gradient(135deg,var(--p1),var(--gold),var(--p2))',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent',cursor:'pointer'}}>
           MovieNight
         </h1>
-        <p style={{fontSize:'13px',color:'var(--muted)',marginBottom:'4px'}}>Find the movies you'll love together — by compromise or by judgment.</p>
+        <p style={{fontSize:'13px',color:'var(--muted)',marginBottom:'4px'}}>A fair way to decide who picks the movie — by compromise or by judgment.</p>
         {phase === 'q1' && (
           <div style={{marginTop:'8px'}}>
             <p style={{fontSize:'11px',color:'var(--dim)',letterSpacing:'1.5px',fontWeight:'500',textTransform:'uppercase'}}>
@@ -2049,6 +2160,91 @@ const App = () => {
         </div>
       )}
 
+      {/* Movie Detail Modal */}
+      {selectedMovie && (
+        <div 
+          onClick={() => setSelectedMovie(null)}
+          style={{
+            position:'fixed',inset:0,background:'rgba(0,0,0,0.85)',
+            display:'flex',alignItems:'center',justifyContent:'center',zIndex:1001,padding:'20px',
+            animation:'fadeIn 0.2s ease-out'
+          }}
+        >
+          <div 
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              background:'var(--card)',borderRadius:'24px',padding:'28px',
+              maxWidth:'400px',width:'100%',maxHeight:'90vh',overflowY:'auto',
+              border:'2px solid var(--elevated)',
+              animation:'reveal 0.3s ease-out'
+            }}
+          >
+            {/* Close button */}
+            <button 
+              onClick={() => setSelectedMovie(null)}
+              style={{
+                position:'absolute',top:'12px',right:'12px',
+                width:'32px',height:'32px',borderRadius:'50%',
+                background:'var(--elevated)',border:'none',
+                color:'var(--muted)',fontSize:'18px',cursor:'pointer',
+                display:'flex',alignItems:'center',justifyContent:'center'
+              }}
+            >×</button>
+            
+            <div style={{textAlign:'center'}}>
+              {/* Poster */}
+              <div style={{borderRadius:'16px',overflow:'hidden',marginBottom:'20px',boxShadow:'0 8px 30px rgba(0,0,0,0.4)',maxWidth:'200px',margin:'0 auto 20px'}}>
+                {selectedMovie.movie.poster ? (
+                  <img src={selectedMovie.movie.poster} alt={selectedMovie.movie.title} style={{width:'100%',display:'block'}} onError={(e) => e.target.style.display = 'none'} />
+                ) : (
+                  <div style={{width:'200px',height:'300px',background:'var(--elevated)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'64px'}}>🎬</div>
+                )}
+              </div>
+              
+              {/* Title */}
+              <h3 className="space" style={{fontSize:'22px',fontWeight:'700',marginBottom:'12px',lineHeight:1.2}}>{selectedMovie.movie.title}</h3>
+              
+              {/* Meta */}
+              <div style={{display:'flex',gap:'8px',marginBottom:'16px',flexWrap:'wrap',justifyContent:'center'}}>
+                {selectedMovie.movie.rating > 0 && <span style={{padding:'6px 14px',borderRadius:'20px',background:'var(--bg)',fontSize:'13px',fontWeight:'600'}}>★ {selectedMovie.movie.rating.toFixed(1)}</span>}
+                <span style={{padding:'6px 14px',borderRadius:'20px',background:'var(--bg)',fontSize:'13px'}}>{selectedMovie.movie.year}</span>
+              </div>
+              
+              {/* Match Score */}
+              <div style={{padding:'14px 24px',borderRadius:'16px',background:'linear-gradient(135deg,rgba(255,107,107,0.15),rgba(78,205,196,0.15))',marginBottom:'16px',display:'inline-block'}}>
+                <span style={{fontSize:'13px',color:'var(--muted)',marginRight:'8px'}}>Match:</span>
+                <span className="space" style={{fontSize:'28px',fontWeight:'700',color:'var(--gold)'}}>{selectedMovie.score}%</span>
+              </div>
+              
+              {/* Overview */}
+              {selectedMovie.movie.overview && (
+                <p style={{fontSize:'13px',color:'var(--muted)',lineHeight:'1.6',marginBottom:'20px',textAlign:'left'}}>
+                  {selectedMovie.movie.overview}
+                </p>
+              )}
+              
+              {/* Action Buttons */}
+              <div style={{display:'flex',gap:'12px',flexWrap:'wrap',justifyContent:'center'}}>
+                <a href={`https://www.justwatch.com/us/search?q=${encodeURIComponent(selectedMovie.movie.title)}`} target="_blank" rel="noopener noreferrer" style={{
+                  padding:'14px 24px',borderRadius:'14px',background:'var(--gold)',color:'var(--bg)',
+                  fontSize:'14px',fontWeight:'700',textDecoration:'none',display:'inline-flex',alignItems:'center',gap:'8px',
+                  flex:'1',justifyContent:'center',minWidth:'140px'
+                }}>
+                  📺 Where to Watch
+                </a>
+                <a href={`https://www.themoviedb.org/movie/${selectedMovie.movie.id}`} target="_blank" rel="noopener noreferrer" style={{
+                  padding:'14px 24px',borderRadius:'14px',border:'2px solid var(--elevated)',background:'transparent',color:'var(--muted)',
+                  fontSize:'14px',fontWeight:'600',textDecoration:'none',display:'inline-flex',alignItems:'center',gap:'8px',
+                  flex:'1',justifyContent:'center',minWidth:'140px'
+                }}>
+                  ℹ️ More Info
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Mobile Handoff Screen */}
       {showHandoff && (
         <div style={{
@@ -2067,6 +2263,9 @@ const App = () => {
               {currentTurn === 2 
                 ? "Partner 1 is done picking. Time to switch!" 
                 : "You're up first! Pick 1-4 movies you'd want to watch tonight."}
+            </p>
+            <p style={{fontSize:'13px',color:'var(--gold)',marginBottom:'8px',fontStyle:'italic'}}>
+              💡 Tip: Try to pick movies your partner would like too!
             </p>
             <p style={{fontSize:'13px',color:'var(--dim)',marginBottom:'24px'}}>
               {currentTurn === 2 
@@ -2207,8 +2406,11 @@ const App = () => {
                   <p style={{fontSize:'13px',color:'var(--text)',marginBottom:'4px'}}>
                     Pick the movies you'd like to watch tonight
                   </p>
-                  <p style={{fontSize:'11px',color:'var(--muted)'}}>
+                  <p style={{fontSize:'11px',color:'var(--muted)',marginBottom:'6px'}}>
                     Slide right for <span style={{color:'#4ADE80'}}>yes</span>, left for <span style={{color:'var(--p1)'}}>no</span>
+                  </p>
+                  <p style={{fontSize:'10px',color:'var(--gold)',fontStyle:'italic'}}>
+                    💡 Tip: Try to pick movies your partner would like too!
                   </p>
                 </div>
               )}
@@ -2375,8 +2577,8 @@ const App = () => {
                     <p style={{fontSize:'13px',color:'var(--muted)',lineHeight:'1.6'}}>
                       Those who find agreement may be favored. Those who refuse all compromise may be judged.
                     </p>
-                    <p style={{fontSize:'12px',color:'var(--dim)',marginTop:'10px'}}>
-                      💡 <span style={{color:'var(--muted)'}}>Tip:</span> Use the slider to rate each movie. The algorithm sees all.
+                    <p style={{fontSize:'12px',color:'var(--gold)',marginTop:'12px',fontStyle:'italic'}}>
+                      💡 Tip: Try to pick movies your partner would like too!
                     </p>
                   </div>
                 </div>
@@ -2583,7 +2785,7 @@ const App = () => {
           </div>
 
           <div style={{display:'flex',flexDirection:'column',gap:'16px',maxWidth:'700px',margin:'0 auto'}}>
-            {result.map((r, i) => <ResultMovieCard key={r.movie.id} movie={r.movie} score={r.matchScore} rank={i + 1} isWinner={i === 0} isDiscovery={i === 0 && r.isDiscovery} />)}
+            {result.map((r, i) => <ResultMovieCard key={r.movie.id} movie={r.movie} score={r.matchScore} rank={i + 1} isWinner={i === 0} isDiscovery={i === 0 && r.isDiscovery} onClick={(movie, score) => setSelectedMovie({movie, score})} />)}
           </div>
 
           {/* Verdict Explanation - only show for non-shared views */}
