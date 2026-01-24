@@ -1110,12 +1110,40 @@ const App = () => {
   const [authSuccess, setAuthSuccess] = useState('');
   const [waitlistQuestion, setWaitlistQuestion] = useState('');
   const [waitlistMessage, setWaitlistMessage] = useState('');
+  const [isSharedView, setIsSharedView] = useState(false);
   
   // Mobile turn-based picking
   const [isMobile, setIsMobile] = useState(false);
   const [currentTurn, setCurrentTurn] = useState(1); // 1 or 2
   const [showHandoff, setShowHandoff] = useState(false);
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
+  
+  // Check for shared results in URL on mount
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const sharedData = params.get('v'); // v = verdict
+    
+    if (sharedData) {
+      try {
+        const decoded = JSON.parse(atob(sharedData));
+        if (decoded.results && decoded.results.length > 0) {
+          // Reconstruct the results
+          const sharedResults = decoded.results.map(r => ({
+            movie: r.m,
+            matchScore: r.s,
+            isDiscovery: r.d || false
+          }));
+          setResult(sharedResults);
+          setFairnessScore(decoded.fairness || { p1: 50, p2: 50 });
+          setIsSharedView(true);
+          setPhase('result');
+          setLoading(false);
+        }
+      } catch (e) {
+        console.log('Invalid shared link');
+      }
+    }
+  }, []);
   
   // Check if mobile on mount
   useEffect(() => {
@@ -1690,33 +1718,54 @@ const App = () => {
     const runnerUp = result[1];
     const bothPicked = p1Picks[winner.movie.id] && p2Picks[winner.movie.id];
     
+    // Encode results for sharing (compact format)
+    const shareData = {
+      results: result.slice(0, 5).map(r => ({
+        m: { // movie data (minimal)
+          id: r.movie.id,
+          title: r.movie.title,
+          poster: r.movie.poster,
+          year: r.movie.year,
+          rating: r.movie.rating,
+          genre_ids: r.movie.genre_ids
+        },
+        s: r.matchScore, // score
+        d: r.isDiscovery // discovery
+      })),
+      fairness: fairnessScore
+    };
+    
+    const encoded = btoa(JSON.stringify(shareData));
+    const shareUrl = `${window.location.origin}${window.location.pathname}?v=${encoded}`;
+    
     let text;
     if (bothPicked) {
-      text = `🎬 MovieNight Verdict: We both wanted "${winner.movie.title}"!\n\n${winner.matchScore}% match — the algorithm confirmed what we already knew 😏\n\nStop fighting about what to watch:`;
+      text = `🎬 MovieNight Verdict: We both wanted "${winner.movie.title}"!\n\n${winner.matchScore}% match — the algorithm confirmed what we already knew 😏\n\nSee our results:`;
     } else {
-      text = `🎬 MovieNight has spoken!\n\nTonight we're watching: "${winner.movie.title}" (${winner.matchScore}% match)\nRunner up: "${runnerUp?.movie.title || 'N/A'}"\n\nSettled our movie debate in 2 minutes. Try it:`;
+      text = `🎬 MovieNight has spoken!\n\nTonight we're watching: "${winner.movie.title}" (${winner.matchScore}% match)\nRunner up: "${runnerUp?.movie.title || 'N/A'}"\n\nSee our results:`;
     }
     
-    const url = window.location.origin + window.location.pathname;
     if (navigator.share) {
       navigator.share({ 
-        title: 'MovieNight - We Settled Our Movie Debate!', 
+        title: 'MovieNight - Our Movie Verdict!', 
         text, 
-        url 
+        url: shareUrl 
       }).catch(() => {
-        // User cancelled or error, fallback to clipboard
-        navigator.clipboard.writeText(text + ' ' + url);
+        navigator.clipboard.writeText(text + ' ' + shareUrl);
+        alert('Link copied to clipboard!');
       });
     } else {
-      navigator.clipboard.writeText(text + ' ' + url);
-      alert('Copied to clipboard!');
+      navigator.clipboard.writeText(text + ' ' + shareUrl);
+      alert('Link copied to clipboard!');
     }
   };
 
   const reset = () => {
     setPhase('q1'); setP1Picks({}); setP2Picks({}); setLastPicker(null);
     setLastMovieRatingP1(null); setLastMovieRatingP2(null); setLastMovie(null); 
-    setResult(null); setVerdictExplanation(null);
+    setResult(null); setVerdictExplanation(null); setIsSharedView(false);
+    // Clear URL params
+    window.history.replaceState({}, '', window.location.pathname);
   };
 
   return (
@@ -2362,6 +2411,25 @@ const App = () => {
 
       {phase === 'result' && result && (
         <div style={{animation:'reveal 0.5s ease-out'}}>
+          {/* Shared view banner */}
+          {isSharedView && (
+            <div style={{
+              background:'linear-gradient(135deg, var(--purple), var(--p1))',
+              borderRadius:'16px',padding:'16px 20px',marginBottom:'20px',
+              textAlign:'center',maxWidth:'700px',margin:'0 auto 20px'
+            }}>
+              <p style={{fontSize:'14px',fontWeight:'600',marginBottom:'8px'}}>
+                👀 You're viewing someone's MovieNight verdict!
+              </p>
+              <button onClick={reset} style={{
+                background:'white',color:'#333',border:'none',borderRadius:'20px',
+                padding:'10px 24px',fontSize:'14px',fontWeight:'600',cursor:'pointer'
+              }}>
+                🎬 Try MovieNight Yourself
+              </button>
+            </div>
+          )}
+          
           {/* Share button at TOP for mobile - viral priority */}
           <div style={{textAlign:'center',marginBottom:'20px',padding:'0 16px'}}>
             <button onClick={shareResult} className="share-btn" style={{
@@ -2369,23 +2437,27 @@ const App = () => {
               padding: isMobile ? '16px 28px' : '14px 28px',
               fontSize: isMobile ? '16px' : '15px'
             }}>
-              🎉 Share Your Verdict
+              {isSharedView ? '🔗 Share This Verdict' : '🎉 Share Your Verdict'}
             </button>
-            <p style={{fontSize:'11px',color:'var(--dim)',marginTop:'8px'}}>Let your friends settle their movie debates too!</p>
+            <p style={{fontSize:'11px',color:'var(--dim)',marginTop:'8px'}}>
+              {isSharedView ? 'Share this verdict with others!' : 'Let your friends settle their movie debates too!'}
+            </p>
           </div>
           
           <div style={{textAlign:'center',marginBottom:'24px'}}>
             <div style={{fontSize:'48px',marginBottom:'10px',animation:'verdictReveal 0.6s ease-out'}}>⚖️</div>
             <h2 className="space" style={{fontSize:'28px',fontWeight:'700',marginBottom:'6px'}}>The Verdict Is In</h2>
-            <p style={{color:'var(--muted)',fontSize:'13px'}}>The court has ruled. No appeals.</p>
+            <p style={{color:'var(--muted)',fontSize:'13px'}}>
+              {isSharedView ? 'Here\'s what they\'re watching tonight!' : 'The court has ruled. No appeals.'}
+            </p>
           </div>
 
           <div style={{display:'flex',flexDirection:'column',gap:'16px',maxWidth:'700px',margin:'0 auto'}}>
             {result.map((r, i) => <ResultMovieCard key={r.movie.id} movie={r.movie} score={r.matchScore} rank={i + 1} isWinner={i === 0} isDiscovery={i === 0 && r.isDiscovery} />)}
           </div>
 
-          {/* Verdict Explanation */}
-          {verdictExplanation && (
+          {/* Verdict Explanation - only show for non-shared views */}
+          {verdictExplanation && !isSharedView && (
             <div style={{maxWidth:'700px',margin:'24px auto 0',animation:'fadeIn 0.5s ease-out 0.3s both'}}>
               <div style={{
                 background:'linear-gradient(135deg, var(--card), var(--elevated))',
@@ -2439,36 +2511,69 @@ const App = () => {
 
           <FairnessBar p1Percent={fairnessScore.p1} p2Percent={fairnessScore.p2} />
 
-          <div className="picks-grid" style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(260px,1fr))',gap:'18px',marginTop:'28px',maxWidth:'700px',margin:'28px auto 0'}}>
-            {[['😇 Your Picks', p1Picks, 'var(--p2)', '💚', '👎'], ['😈 Their Picks', p2Picks, 'var(--p1)', '❤️', '👎']].map(([name, picks, color, emoji, negEmoji]) => (
-              <div key={name} style={{background:'var(--card)',borderRadius:'16px',padding:'18px',borderLeft:`4px solid ${color}`}}>
-                <h4 style={{color,fontSize:'14px',fontWeight:'700',marginBottom:'12px'}}>{name}</h4>
-                <div style={{display:'flex',flexDirection:'column',gap:'8px'}}>
-                  {Object.values(picks).map(({movie, expr}) => (
-                    <div key={movie.id} style={{display:'flex',alignItems:'center',gap:'8px',fontSize:'13px'}}>
-                      <span style={{flex:1,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',color: expr <= 2 ? 'var(--dim)' : 'inherit'}}>{movie.title}</span>
-                      <span style={{color: expr <= 2 ? 'var(--dim)' : color,flexShrink:0}}>
-                        {expr <= 2 ? negEmoji : emoji.repeat(Math.min(Math.max(expr - 2, 1), 4))}
-                      </span>
-                    </div>
+          {/* Only show picks for non-shared views */}
+          {!isSharedView && (
+            <div className="picks-grid" style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(260px,1fr))',gap:'18px',marginTop:'28px',maxWidth:'700px',margin:'28px auto 0'}}>
+              {[['😇 Your Picks', p1Picks, 'var(--p2)', '💚', '👎'], ['😈 Their Picks', p2Picks, 'var(--p1)', '❤️', '👎']].map(([name, picks, color, emoji, negEmoji]) => (
+                <div key={name} style={{background:'var(--card)',borderRadius:'16px',padding:'18px',borderLeft:`4px solid ${color}`}}>
+                  <h4 style={{color,fontSize:'14px',fontWeight:'700',marginBottom:'12px'}}>{name}</h4>
+                  <div style={{display:'flex',flexDirection:'column',gap:'8px'}}>
+                    {Object.values(picks).map(({movie, expr}) => (
+                      <div key={movie.id} style={{display:'flex',alignItems:'center',gap:'8px',fontSize:'13px'}}>
+                        <span style={{flex:1,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',color: expr <= 2 ? 'var(--dim)' : 'inherit'}}>{movie.title}</span>
+                        <span style={{color: expr <= 2 ? 'var(--dim)' : color,flexShrink:0}}>
+                          {expr <= 2 ? negEmoji : emoji.repeat(Math.min(Math.max(expr - 2, 1), 4))}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Show quotes only for non-shared views */}
+          {!isSharedView && randomQuotes.length > 0 && (
+            <div style={{maxWidth:'700px',margin:'32px auto 0'}}>
+              <div style={{background:'linear-gradient(135deg, var(--card), var(--elevated))',borderRadius:'20px',padding:'24px',textAlign:'center'}}>
+                <div style={{display:'flex',flexDirection:'column',gap:'12px'}}>
+                  {randomQuotes.map((quote, i) => (
+                    <p key={i} style={{fontSize:'14px',color:'var(--muted)',fontStyle:'italic',lineHeight:'1.5',animation:`fadeIn 0.5s ease-out ${0.3 + i * 0.2}s both`}}>"{quote}"</p>
                   ))}
                 </div>
               </div>
-            ))}
-          </div>
-
-          <div style={{maxWidth:'700px',margin:'32px auto 0'}}>
-            <div style={{background:'linear-gradient(135deg, var(--card), var(--elevated))',borderRadius:'20px',padding:'24px',textAlign:'center'}}>
-              <div style={{display:'flex',flexDirection:'column',gap:'12px'}}>
-                {randomQuotes.map((quote, i) => (
-                  <p key={i} style={{fontSize:'14px',color:'var(--muted)',fontStyle:'italic',lineHeight:'1.5',animation:`fadeIn 0.5s ease-out ${0.3 + i * 0.2}s both`}}>"{quote}"</p>
-                ))}
+            </div>
+          )}
+          
+          {/* CTA for shared views */}
+          {isSharedView && (
+            <div style={{maxWidth:'700px',margin:'32px auto 0'}}>
+              <div style={{
+                background:'linear-gradient(135deg, var(--gold-soft), var(--p2-soft))',
+                borderRadius:'20px',padding:'28px',textAlign:'center',
+                border:'1px solid var(--gold)'
+              }}>
+                <h3 className="space" style={{fontSize:'18px',fontWeight:'700',marginBottom:'8px'}}>
+                  Want to settle YOUR movie debate?
+                </h3>
+                <p style={{fontSize:'14px',color:'var(--muted)',marginBottom:'16px'}}>
+                  MovieNight helps couples find movies they'll both love. Takes 2 minutes!
+                </p>
+                <button onClick={reset} style={{
+                  padding:'14px 36px',borderRadius:'50px',border:'none',
+                  background:'var(--gold)',color:'#000',fontSize:'15px',
+                  fontWeight:'700',cursor:'pointer'
+                }}>
+                  🎬 Try MovieNight Free
+                </button>
               </div>
             </div>
-          </div>
+          )}
 
           <div style={{textAlign:'center',marginTop:'28px'}}>
-            <button onClick={reset} style={{padding:'12px 32px',borderRadius:'50px',border:'2px solid var(--gold)',background:'transparent',color:'var(--gold)',fontSize:'14px',fontWeight:'600',cursor:'pointer'}}>Start Over ⚖️</button>
+            <button onClick={reset} style={{padding:'12px 32px',borderRadius:'50px',border:'2px solid var(--gold)',background:'transparent',color:'var(--gold)',fontSize:'14px',fontWeight:'600',cursor:'pointer'}}>
+              {isSharedView ? '🎬 Start Your Own' : 'Start Over ⚖️'}
+            </button>
           </div>
           
           {/* Sign up prompt - show only if not logged in */}
