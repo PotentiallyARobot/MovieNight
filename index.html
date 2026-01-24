@@ -1764,6 +1764,7 @@ const App = () => {
     setPhase('q1'); setP1Picks({}); setP2Picks({}); setLastPicker(null);
     setLastMovieRatingP1(null); setLastMovieRatingP2(null); setLastMovie(null); 
     setResult(null); setVerdictExplanation(null); setIsSharedView(false);
+    setCurrentTurn(1); setShowHandoff(false);
     // Clear URL params
     window.history.replaceState({}, '', window.location.pathname);
   };
@@ -2055,17 +2056,22 @@ const App = () => {
           display:'flex',alignItems:'center',justifyContent:'center',zIndex:1000,padding:'20px',
           animation:'fadeIn 0.3s ease-out'
         }}>
-          <div style={{textAlign:'center',maxWidth:'320px'}}>
+          <div style={{textAlign:'center',maxWidth:'400px'}}>
             <div style={{fontSize:'64px',marginBottom:'20px',animation:'pulse 1.5s ease-in-out infinite'}}>
               {currentTurn === 2 ? '😈' : '😇'}
             </div>
             <h2 className="space" style={{fontSize:'24px',fontWeight:'700',marginBottom:'12px',color: currentTurn === 2 ? 'var(--p1)' : 'var(--p2)'}}>
               {currentTurn === 2 ? "Partner 2's Turn" : "Partner 1's Turn"}
             </h2>
-            <p style={{fontSize:'14px',color:'var(--muted)',marginBottom:'24px',lineHeight:'1.5'}}>
+            <p style={{fontSize:'14px',color:'var(--muted)',marginBottom:'8px',lineHeight:'1.5'}}>
               {currentTurn === 2 
-                ? "Hand the phone to your partner. It's their turn to pick movies!" 
-                : "You're up first! Pick 2-3 movies you'd want to watch tonight."}
+                ? "Partner 1 is done picking. Time to switch!" 
+                : "You're up first! Pick 1-4 movies you'd want to watch tonight."}
+            </p>
+            <p style={{fontSize:'13px',color:'var(--dim)',marginBottom:'24px'}}>
+              {currentTurn === 2 
+                ? "👀 Partner 1: Look away — no peeking at their picks!" 
+                : ""}
             </p>
             <button onClick={() => setShowHandoff(false)} style={{
               padding:'16px 48px',borderRadius:'50px',border:'none',
@@ -2307,52 +2313,176 @@ const App = () => {
               </div>
             </div>
           ) : (
-            /* Desktop side-by-side picking */
-            <>
-              <p style={{textAlign:'center',fontSize:'15px',color:'var(--muted)',marginBottom:'16px'}}>Pick 1-4 movies each. Rate how much you want to watch them tonight.</p>
-              
-              {/* Caution Message */}
-              <div style={{maxWidth:'600px',margin:'0 auto 28px',padding:'0 16px'}}>
-                <div style={{
-                  background:'linear-gradient(135deg, rgba(255,217,61,0.06), rgba(168,85,247,0.06))',
-                  borderRadius:'16px',padding:'20px',textAlign:'center',
-                  border:'1px solid rgba(255,217,61,0.15)'
-                }}>
-                  <p style={{fontSize:'13px',color:'var(--gold)',marginBottom:'6px',fontWeight:'600'}}>⚖️ A Word of Caution</p>
-                  <p style={{fontSize:'13px',color:'var(--muted)',lineHeight:'1.6'}}>
-                    Those who find agreement may be favored.<br/>
-                    Those who refuse all compromise may be judged.
-                  </p>
-                  <p style={{fontSize:'12px',color:'var(--dim)',marginTop:'10px',lineHeight:'1.5'}}>
-                    💡 <span style={{color:'var(--muted)'}}>Tip:</span> Slide left to show less interest, right for more. The algorithm sees all.
-                  </p>
+            /* Desktop Turn-Based Picking */
+            <div style={{maxWidth:'700px',margin:'0 auto',padding:'0 20px'}}>
+              {/* Turn indicator header */}
+              <div style={{
+                display:'flex',alignItems:'center',justifyContent:'space-between',
+                marginBottom:'20px',padding:'16px 24px',
+                background:'var(--card)',borderRadius:'50px'
+              }}>
+                <div style={{display:'flex',alignItems:'center',gap:'10px'}}>
+                  <span style={{fontSize:'28px'}}>{currentTurn === 1 ? '😇' : '😈'}</span>
+                  <div>
+                    <span style={{fontSize:'18px',fontWeight:'700',color: currentTurn === 1 ? 'var(--p2)' : 'var(--p1)'}}>
+                      {currentTurn === 1 ? "Partner 1's Turn" : "Partner 2's Turn"}
+                    </span>
+                    <p style={{fontSize:'12px',color:'var(--muted)',marginTop:'2px'}}>
+                      {currentTurn === 1 ? Object.keys(p1Picks).length : Object.keys(p2Picks).length}/4 movies picked
+                    </p>
+                  </div>
+                </div>
+                {/* Progress indicator */}
+                <div style={{display:'flex',alignItems:'center',gap:'12px'}}>
+                  <div style={{display:'flex',gap:'6px'}}>
+                    {[0,1,2,3].map(i => {
+                      const picks = currentTurn === 1 ? Object.values(p1Picks) : Object.values(p2Picks);
+                      const pick = picks[i];
+                      let dotColor = 'var(--elevated)';
+                      if (pick) {
+                        if (pick.expr >= 5) dotColor = 'var(--gold)';
+                        else if (pick.expr >= 3) dotColor = '#4ADE80';
+                        else dotColor = 'var(--p1)';
+                      }
+                      return (
+                        <div key={i} style={{
+                          width:'24px',height:'8px',borderRadius:'4px',
+                          background: dotColor,
+                          transition:'background 0.3s'
+                        }}/>
+                      );
+                    })}
+                  </div>
+                  <div style={{
+                    padding:'6px 14px',borderRadius:'20px',fontSize:'12px',fontWeight:'600',
+                    background: currentTurn === 1 ? 'var(--p2-soft)' : 'var(--p1-soft)',
+                    color: currentTurn === 1 ? 'var(--p2)' : 'var(--p1)'
+                  }}>
+                    Step {currentTurn} of 2
+                  </div>
                 </div>
               </div>
               
-              <div className="partner-columns" style={{display:'flex',gap:'24px',flexWrap:'wrap',marginBottom:'28px'}}>
-                <PartnerColumn name="You" emoji="😇" color="var(--p2)" picks={Object.values(p1Picks)}
-                  onAddPick={(m) => addPick(m, 1)} onRemovePick={(id) => removePick(id, 1)}
-                  onExpressionChange={(id, val) => setExpr(id, val, 1)} allPicks={{p1: p1Picks, p2: p2Picks}}
-                  movies={movies} onSearch={search} loading={loading} player={1} />
-                <div className="vs-circle" style={{display:'flex',alignItems:'center',justifyContent:'center',padding:'20px 0'}}>
-                  <div style={{width:'56px',height:'56px',borderRadius:'50%',background:'var(--elevated)',border:'3px solid var(--gold)',display:'flex',alignItems:'center',justifyContent:'center',fontWeight:'700',fontSize:'16px',color:'var(--gold)',boxShadow:'0 4px 20px rgba(255,217,61,0.3)'}}>VS</div>
+              {/* Caution Message - only on first pick */}
+              {(currentTurn === 1 ? Object.keys(p1Picks).length : Object.keys(p2Picks).length) === 0 && (
+                <div style={{marginBottom:'24px'}}>
+                  <div style={{
+                    background:'linear-gradient(135deg, rgba(255,217,61,0.06), rgba(168,85,247,0.06))',
+                    borderRadius:'16px',padding:'20px',textAlign:'center',
+                    border:'1px solid rgba(255,217,61,0.15)'
+                  }}>
+                    <p style={{fontSize:'14px',color:'var(--gold)',marginBottom:'6px',fontWeight:'600'}}>⚖️ A Word of Caution</p>
+                    <p style={{fontSize:'13px',color:'var(--muted)',lineHeight:'1.6'}}>
+                      Those who find agreement may be favored. Those who refuse all compromise may be judged.
+                    </p>
+                    <p style={{fontSize:'12px',color:'var(--dim)',marginTop:'10px'}}>
+                      💡 <span style={{color:'var(--muted)'}}>Tip:</span> Use the slider to rate each movie. The algorithm sees all.
+                    </p>
+                  </div>
                 </div>
-                <PartnerColumn name="Them" emoji="😈" color="var(--p1)" picks={Object.values(p2Picks)}
-                  onAddPick={(m) => addPick(m, 2)} onRemovePick={(id) => removePick(id, 2)}
-                  onExpressionChange={(id, val) => setExpr(id, val, 2)} allPicks={{p1: p1Picks, p2: p2Picks}}
-                  movies={movies} onSearch={search} loading={loading} player={2} />
+              )}
+              
+              {/* Privacy reminder */}
+              <div style={{
+                textAlign:'center',marginBottom:'20px',padding:'10px 16px',
+                background:'var(--elevated)',borderRadius:'12px',
+                display:'inline-flex',alignItems:'center',gap:'8px',
+                margin:'0 auto 20px',width:'100%',justifyContent:'center'
+              }}>
+                <span style={{fontSize:'16px'}}>👀</span>
+                <span style={{fontSize:'13px',color:'var(--muted)'}}>
+                  {currentTurn === 1 
+                    ? "Partner 2: Please look away! No peeking at their picks."
+                    : "Partner 1: Please look away! No peeking at their picks."
+                  }
+                </span>
               </div>
+              
+              {/* The picking area */}
+              <div style={{
+                background:'var(--card)',borderRadius:'24px',padding:'24px',
+                border: `2px solid ${currentTurn === 1 ? 'var(--p2)' : 'var(--p1)'}`,
+                marginBottom:'24px'
+              }}>
+                <PartnerColumn 
+                  name={currentTurn === 1 ? "You" : "Them"} 
+                  emoji={currentTurn === 1 ? "😇" : "😈"} 
+                  color={currentTurn === 1 ? "var(--p2)" : "var(--p1)"} 
+                  picks={currentTurn === 1 ? Object.values(p1Picks) : Object.values(p2Picks)}
+                  onAddPick={(m) => addPick(m, currentTurn)} 
+                  onRemovePick={(id) => removePick(id, currentTurn)}
+                  onExpressionChange={(id, val) => setExpr(id, val, currentTurn)} 
+                  allPicks={{p1: p1Picks, p2: p2Picks}}
+                  movies={movies} 
+                  onSearch={search} 
+                  loading={loading} 
+                  player={currentTurn} 
+                />
+              </div>
+              
+              {/* Sentiment tag */}
+              {(() => {
+                const picks = currentTurn === 1 ? Object.values(p1Picks) : Object.values(p2Picks);
+                const sentimentTag = getSentimentTag(picks);
+                return sentimentTag ? (
+                  <div style={{display:'flex',justifyContent:'center',marginBottom:'20px'}}>
+                    <div style={{
+                      display:'inline-flex',alignItems:'center',gap:'10px',
+                      padding:'10px 20px',borderRadius:'25px',
+                      background:'var(--card)'
+                    }}>
+                      <span style={{fontSize:'20px'}}>{sentimentTag.emoji}</span>
+                      <span style={{fontSize:'14px',color:sentimentTag.color,fontWeight:'600'}}>{sentimentTag.text}</span>
+                    </div>
+                  </div>
+                ) : null;
+              })()}
+              
+              {/* Action buttons */}
               <div style={{textAlign:'center'}}>
-                <button onClick={findMatch} disabled={!canFindMatch} style={{
-                  padding:'18px 48px',borderRadius:'50px',border:'none',fontSize:'17px',fontWeight:'700',
-                  cursor: canFindMatch ? 'pointer' : 'not-allowed',
-                  background: canFindMatch ? 'linear-gradient(135deg,var(--p1),var(--gold),var(--p2))' : 'var(--elevated)',
-                  color: canFindMatch ? 'white' : 'var(--dim)',
-                  boxShadow: canFindMatch ? '0 10px 40px rgba(255,217,61,0.4)' : 'none',
-                  animation: canFindMatch ? 'glow 2s ease-in-out infinite' : 'none'
-                }}>{canFindMatch ? '⚖️ Deliver the Verdict' : `Need ${Math.max(0, 1 - p1Count) + Math.max(0, 1 - p2Count)} more picks`}</button>
+                {currentTurn === 1 ? (
+                  <button 
+                    onClick={() => {
+                      if (Object.keys(p1Picks).length >= 1) {
+                        setCurrentTurn(2);
+                        setShowHandoff(true);
+                      }
+                    }}
+                    disabled={Object.keys(p1Picks).length < 1}
+                    style={{
+                      padding:'16px 48px',borderRadius:'50px',border:'none',
+                      fontSize:'16px',fontWeight:'700',
+                      background: Object.keys(p1Picks).length >= 1 
+                        ? 'linear-gradient(135deg, var(--p2), var(--gold))' 
+                        : 'var(--elevated)',
+                      color: Object.keys(p1Picks).length >= 1 ? 'white' : 'var(--dim)',
+                      cursor: Object.keys(p1Picks).length >= 1 ? 'pointer' : 'not-allowed',
+                      boxShadow: Object.keys(p1Picks).length >= 1 ? '0 8px 32px rgba(78,205,196,0.4)' : 'none'
+                    }}
+                  >
+                    {Object.keys(p1Picks).length >= 1 ? "✓ Done — Pass to Partner 2" : "Pick at least 1 movie"}
+                  </button>
+                ) : (
+                  <button 
+                    onClick={findMatch}
+                    disabled={Object.keys(p2Picks).length < 1}
+                    style={{
+                      padding:'18px 56px',borderRadius:'50px',border:'none',
+                      fontSize:'17px',fontWeight:'700',
+                      background: Object.keys(p2Picks).length >= 1 
+                        ? 'linear-gradient(135deg,var(--p1),var(--gold),var(--p2))' 
+                        : 'var(--elevated)',
+                      color: Object.keys(p2Picks).length >= 1 ? 'white' : 'var(--dim)',
+                      cursor: Object.keys(p2Picks).length >= 1 ? 'pointer' : 'not-allowed',
+                      boxShadow: Object.keys(p2Picks).length >= 1 ? '0 10px 40px rgba(255,217,61,0.4)' : 'none',
+                      animation: Object.keys(p2Picks).length >= 1 ? 'glow 2s ease-in-out infinite' : 'none'
+                    }}
+                  >
+                    {Object.keys(p2Picks).length >= 1 ? "⚖️ Deliver the Verdict" : "Pick at least 1 movie"}
+                  </button>
+                )}
               </div>
-            </>
+            </div>
           )}
         </>
       )}
