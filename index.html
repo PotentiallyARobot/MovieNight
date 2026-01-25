@@ -2914,7 +2914,7 @@ Return this EXACT JSON format:
       {phase === 'q1' && (
         <div style={{maxWidth:'500px',margin:'20px auto',padding:'0 16px',animation:'fadeIn 0.4s ease-out'}}>
           <div style={{background:'var(--card)',borderRadius:'24px',padding:'36px 28px',textAlign:'center'}}>
-            <div style={{fontSize:'48px',marginBottom:'16px'}}>⚖️</div>
+            <img src="testify_logo.png" alt="Testify" style={{width:'48px',height:'48px',marginBottom:'16px'}} />
             <p style={{fontSize:'12px',color:'var(--dim)',marginBottom:'8px',textTransform:'uppercase',letterSpacing:'2px'}}>Step 1 of 3 — Accountability</p>
             <h2 className="space" style={{fontSize:'24px',fontWeight:'700',marginBottom:'8px'}}>Be honest.</h2>
             <h2 className="space" style={{fontSize:'24px',fontWeight:'700',marginBottom:'24px'}}>Who picked last time?</h2>
@@ -3438,7 +3438,7 @@ Return this EXACT JSON format:
           </div>
           
           <div style={{textAlign:'center',marginBottom:'24px'}}>
-            <div style={{fontSize:'48px',marginBottom:'10px',animation:'verdictReveal 0.6s ease-out'}}>⚖️</div>
+            <img src="gavel_finished_down.png" alt="Verdict" style={{width:'80px',height:'48px',marginBottom:'10px',animation:'verdictReveal 0.6s ease-out',objectFit:'contain'}} />
             <h2 className="space" style={{fontSize:'28px',fontWeight:'700',marginBottom:'6px'}}>The Verdict Is In</h2>
             <p style={{color:'var(--muted)',fontSize:'13px'}}>
               {isSharedView ? 'Here\'s what they\'re watching tonight!' : 'The court has ruled. No appeals.'}
@@ -3593,14 +3593,6 @@ Return this EXACT JSON format:
               </div>
             </div>
           )}
-          
-          {/* Copyright */}
-          <p style={{
-            fontSize:'10px',color:'var(--dim)',textAlign:'center',
-            marginTop:'40px',paddingBottom:'20px'
-          }}>
-            © 2026 Tyler Friddle. All Rights Reserved.
-          </p>
         </div>
       )}
 
