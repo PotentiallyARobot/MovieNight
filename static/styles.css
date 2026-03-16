@@ -1,0 +1,111 @@
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    :root {
+      --p1: #FF6B6B; --p1-soft: rgba(255,107,107,0.15);
+      --p2: #4ECDC4; --p2-soft: rgba(78,205,196,0.15);
+      --gold: #FFD93D; --gold-soft: rgba(255,217,61,0.15);
+      --purple: #A855F7;
+      --bg: #0f0f13; --card: rgba(24,24,31,0.85); --card-solid: #18181f; --elevated: rgba(34,34,48,0.9);
+      --text: #FAFAFA; --muted: #a0a0b0; --dim: #606070;
+    }
+    body {
+      font-family: 'DM Sans', sans-serif;
+      background: var(--bg); color: var(--text);
+      min-height: 100vh; overflow-x: hidden;
+    }
+    /* Background image layer */
+    body::before {
+      content: '';
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background-image: url('movienight_bg_final.png');
+      background-size: cover;
+      background-position: center;
+      background-repeat: no-repeat;
+      background-attachment: scroll;
+      pointer-events: none;
+      z-index: 0;
+    }
+    /* Mobile background - use a wrapper approach to prevent jump */
+    @media (max-width: 768px) {
+      body::before {
+        background-image: url('movienight_mobile_bg_good.png');
+        background-attachment: scroll;
+        /* Extend beyond viewport to prevent jump on iOS */
+        top: -50px;
+        bottom: -50px;
+        height: calc(100% + 100px);
+      }
+    }
+    /* Hide scrollbar but allow scrolling */
+    ::-webkit-scrollbar { width: 0; height: 0; background: transparent; }
+    * { scrollbar-width: none; -ms-overflow-style: none; }
+    #root { position: relative; z-index: 1; }
+    .space { font-family: 'Space Grotesk', sans-serif; }
+    @keyframes reveal { 0%{opacity:0;transform:scale(0.95) translateY(20px)} 100%{opacity:1;transform:scale(1) translateY(0)} }
+    @keyframes spin { to{transform:rotate(360deg)} }
+    @keyframes glow { 0%,100%{box-shadow:0 0 30px rgba(255,217,61,0.4)} 50%{box-shadow:0 0 50px rgba(255,217,61,0.6)} }
+    @keyframes slideIn { 0%{opacity:0;transform:translateY(15px)} 100%{opacity:1;transform:translateY(0)} }
+    @keyframes fadeIn { 0%{opacity:0} 100%{opacity:1} }
+    @keyframes shake { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-3px)} 75%{transform:translateX(3px)} }
+    @keyframes pulse { 0%,100%{transform:scale(1)} 50%{transform:scale(1.03)} }
+    @keyframes verdictReveal { 0%{opacity:0;transform:scale(0.8) rotate(-2deg)} 50%{transform:scale(1.05) rotate(1deg)} 100%{opacity:1;transform:scale(1) rotate(0)} }
+    @keyframes barGrow { 0%{width:0} 100%{width:var(--target-width)} }
+    input[type="range"] { -webkit-appearance:none; background:transparent; cursor:pointer; width:100%; }
+    input[type="range"]::-webkit-slider-thumb { -webkit-appearance:none; height:22px; width:22px; border-radius:50%; background:currentColor; margin-top:-8px; box-shadow:0 2px 10px rgba(0,0,0,0.4); }
+    input[type="range"]::-webkit-slider-runnable-track { height:6px; border-radius:3px; }
+    input[type="range"]::-moz-range-thumb { height:22px; width:22px; border-radius:50%; background:currentColor; border:none; }
+    input[type="range"]::-moz-range-track { height:6px; border-radius:3px; }
+    .btn-choice { 
+      padding: 16px 24px; border-radius: 16px; border: 2px solid var(--elevated); 
+      background: var(--card); color: var(--muted); font-weight: 600; cursor: pointer; 
+      transition: all 0.2s; font-size: 16px; width: 100%; text-align: left;
+      display: flex; align-items: center; gap: 12px;
+    }
+    .btn-choice:hover { border-color: var(--gold); color: var(--text); transform: scale(1.02); }
+    .btn-choice:active { transform: scale(0.98); }
+    .btn-choice.active { border-color: var(--gold); background: var(--gold-soft); color: var(--gold); }
+    .search-input:focus { border-color: var(--gold) !important; outline: none; }
+    .rating-btn {
+      width: 52px; height: 52px; border-radius: 16px; border: 2px solid var(--elevated);
+      background: var(--card); color: var(--muted); font-size: 20px; cursor: pointer;
+      transition: all 0.2s; display: flex; align-items: center; justify-content: center;
+    }
+    .rating-btn:hover { border-color: var(--gold); transform: scale(1.1); }
+    .rating-btn.active { border-color: var(--gold); background: var(--gold); color: var(--bg); transform: scale(1.1); }
+    .share-btn {
+      padding: 14px 28px; border-radius: 50px; border: none;
+      background: linear-gradient(135deg, var(--purple), var(--p1));
+      color: white; font-weight: 700; cursor: pointer; font-size: 15px;
+      transition: all 0.2s; display: inline-flex; align-items: center; gap: 8px;
+    }
+    .share-btn:hover { transform: scale(1.05); box-shadow: 0 10px 30px rgba(168,85,247,0.4); }
+    .watch-btn {
+      padding: 12px 24px; border-radius: 50px; border: 2px solid var(--gold);
+      background: transparent; color: var(--gold); font-weight: 700; cursor: pointer; font-size: 14px;
+      transition: all 0.2s; display: inline-flex; align-items: center; gap: 8px;
+      text-decoration: none;
+    }
+    .watch-btn:hover { background: var(--gold); color: var(--bg); }
+    /* Mobile responsive */
+    @media (max-width: 640px) {
+      .header-btn { position: static !important; margin-top: 12px; }
+      .result-card-inner { flex-direction: column !important; text-align: center; }
+      .result-card-inner > div:first-child { margin: 0 auto; }
+      .result-poster { width: 140px !important; }
+      .result-info { text-align: center; }
+      .picks-grid { grid-template-columns: 1fr !important; }
+      .vs-circle { display: none; }
+      .partner-columns { flex-direction: column !important; gap: 16px !important; }
+    }
+    /* Performance: GPU-accelerate scrollable containers */
+    .movie-grid-scroll {
+      will-change: scroll-position;
+      -webkit-overflow-scrolling: touch;
+      transform: translateZ(0);
+    }
+    .movie-grid-scroll img {
+      content-visibility: auto;
+    }
+    .movie-poster-card {
+      contain: layout style paint;
+    }
