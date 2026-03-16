@@ -1799,7 +1799,7 @@ Return EXACTLY this JSON:
         logDebug('FINAL VERDICT EXPLANATION', aiExplanation);
 
         // Download debug log
-        downloadDebug();
+        // downloadDebug(); // disabled — uncomment to debug prompts
 
         setGptLoading(false);
         setTimeout(() => { setResult(dedupedTop5); setPhase('result'); }, 2000);
@@ -1808,7 +1808,7 @@ Return EXACTLY this JSON:
       } catch (err) {
         console.error('AI Error:', err);
         logDebug('ERROR', err.message);
-        downloadDebug();
+        // downloadDebug(); // disabled — uncomment to debug prompts
         setGptError(err.message);
         setGptLoading(false);
         // Fall through to regular algorithm as last resort
