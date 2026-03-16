@@ -1622,14 +1622,17 @@ const App = () => {
         const prompt = `You are MovieNightVerdict AI — the ultimate movie judge for couples. You MUST pick the best movies for tonight based on ALL the evidence below. Your decision is FINAL and BINDING.
 
 == SESSION HISTORY (from their questionnaire) ==
-- Who picked last time: ${lastPicker || 'Unknown (skipped)'}
-${lastMovieTitle ? `- Last movie watched together: "${lastMovieTitle}" (genres: ${lastMovieGenres.join(', ') || 'unknown'})` : '- Last movie title: not provided'}
-${lastMovieRatingP1 ? `- Partner 1's reaction to last movie: ${p1LikedLastLabel} (${lastMovieRatingP1}/5)` : '- Partner 1 did not rate the last movie'}
-${lastMovieRatingP2 ? `- Partner 2's reaction to last movie: ${p2LikedLastLabel} (${lastMovieRatingP2}/5)` : '- Partner 2 did not rate the last movie'}
-${lastMovieWasBad ? '- ⚠️ LAST MOVIE WAS A BAD EXPERIENCE for at least one partner — this is critical context! Avoid similar genres/vibes and favor the partner who suffered.' : ''}
-${oneHatedOneLovedLast ? '- ⚠️ ONE PARTNER HATED IT, ONE LOVED IT — the partner who suffered last time MUST get more weight tonight. This is a fairness issue.' : ''}
-${lastMovieWasGreat ? '- ✅ Both loved the last movie — look for similar vibes and energy!' : ''}
-${!lastMovieRatingP1 && !lastMovieRatingP2 && !lastPicker ? '- No history provided — they skipped the questionnaire entirely.' : ''}
+${lastPicker === 'p1' ? '- Partner 1 picked the movie last time → FAVOR PARTNER 2 tonight' : ''}
+${lastPicker === 'p2' ? '- Partner 2 picked the movie last time → FAVOR PARTNER 1 tonight' : ''}
+${lastPicker === 'mutual' ? '- BOTH partners agreed on the last movie (mutual choice) → NO favoritism needed, treat both equally' : ''}
+${!lastPicker ? '- Who picked last time: UNKNOWN (skipped) → NO favoritism, treat both equally' : ''}
+${lastMovieTitle ? `- Last movie watched together: "${lastMovieTitle}" (genres: ${lastMovieGenres.join(', ') || 'unknown'})` : ''}
+${lastMovieRatingP1 ? `- Partner 1's reaction to last movie: ${p1LikedLastLabel} (${lastMovieRatingP1}/5)` : ''}
+${lastMovieRatingP2 ? `- Partner 2's reaction to last movie: ${p2LikedLastLabel} (${lastMovieRatingP2}/5)` : ''}
+${lastMovieWasBad ? '- ⚠️ LAST MOVIE WAS A BAD EXPERIENCE for at least one partner — avoid similar genres and favor the partner who suffered!' : ''}
+${oneHatedOneLovedLast ? '- ⚠️ ONE PARTNER HATED IT, ONE LOVED IT — the partner who suffered MUST get more weight tonight!' : ''}
+${lastMovieWasGreat ? '- ✅ Both loved the last movie — look for similar vibes!' : ''}
+${!lastMovieRatingP1 && !lastMovieRatingP2 && !lastMovieTitle ? '- No movie history data provided — do NOT invent or assume any history. Judge purely on the picks and enthusiasm levels below.' : ''}
 
 == EXPRESSION SCALE (0-7) ==
 0 = VETO (do NOT recommend), 1 = Rather not, 2 = Meh, 3 = We'd both like (compromise), 4 = I want this, 5 = Really want, 6 = Need to see this, 7 = MUST WATCH
